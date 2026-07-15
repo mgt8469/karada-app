@@ -84,6 +84,8 @@
   .stp button{width:36px;height:40px;border:1px solid var(--line);background:#fff;border-radius:8px;
     font-size:18px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:700}
   .stp input{text-align:center}
+  .timerBig{font-size:48px;font-weight:700;text-align:center;margin:12px 0;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .timerBig.work{color:var(--accent)} .timerBig.rest{color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -197,8 +199,8 @@ function toggleSchedule(id){const s=D.schedule.find(x=>x.id===id);if(s){s.done=!
 function vTre(){
   const s=sub.tre||'筋トレ';
   return `<div class="subtabs">
-    ${['筋トレ','ラン'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('tre','${x}')">${x}</button>`).join('')}
-    </div>${s==='筋トレ'?vKin():vRun()}`;
+    ${['筋トレ','ラン','タイマー'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('tre','${x}')">${x}</button>`).join('')}
+    </div>${s==='筋トレ'?vKin():s==='ラン'?vRun():vTimer()}`;
 }
 function vKin(){
   const t=today();
@@ -229,6 +231,12 @@ function vKin(){
       <input id="tpEx" placeholder="種目をカンマ区切り">
     </div>
     <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="addTemplate()">＋テンプレ作成</button>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">📥 BurnFitの記録を貼り付けて取り込み</h3>
+    <div class="muted">BurnFitの記録テキストをそのまま貼るだけ。日付・種目・セット（kg／回／分）を自動で読み取って追加します。#タグやURLは無視。</div>
+    <textarea id="bfText" placeholder="例）2026-07-14 トレーニング記録／ヒップアダクション／1セット: 30kg 19回 …" style="min-height:90px"></textarea>
+    <button class="btn ghost" style="margin-top:8px" onclick="importBurnfit()">取り込む</button>
   </div>
   <h3>今日の記録</h3>
   ${todayW.length?todayW.map(w=>wItem(w)).join(''):'<div class="muted">まだなし</div>'}
@@ -261,10 +269,43 @@ function saveWorkout(){const name=document.getElementById('wName').value.trim();
   const sets=_setRows.filter(s=>s.weight||s.reps);
   D.workouts.push({id:uid(),date:today(),name,sets,memo:document.getElementById('wMemo').value.trim()});
   _setRows=[{weight:'',reps:''}];save();render();}
+function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(w.name)}</b><span class="d">${fmtD(w.date)}<button class="del" onclick="delItem('workouts','${w.id}')">削除</button></span></div>
-  <div class="muted">${w.sets.map(s=>`${s.weight||'-'}kg×${s.reps||'-'}`).join(' , ')||'セットなし'}</div>
+  <div class="muted">${w.sets.map(fmtSet).join(' , ')||'セットなし'}</div>
   ${w.memo?`<div style="font-size:13px;margin-top:3px">📝 ${esc(w.memo)}</div>`:''}</div>`;}
+function parseBurnfit(text){
+  const dm=text.match(/(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})/);
+  const date=dm?`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`:today();
+  const setRe=/^\d+\s*セット\s*[:：]/;
+  const items=[]; let cur=null;
+  text.split(/\n/).map(l=>l.trim()).filter(Boolean).forEach(line=>{
+    if(/^#/.test(line)||/^https?:\/\//.test(line)||/トレーニング記録/.test(line))return;
+    if(setRe.test(line)){
+      if(!cur)return;
+      const body=line.replace(setRe,'').trim();
+      const kg=body.match(/([\d.]+)\s*kg/), rep=body.match(/([\d.]+)\s*回/), min=body.match(/([\d.]+)\s*分/);
+      const s={};
+      if(kg)s.weight=+kg[1];
+      if(rep)s.reps=+rep[1];
+      if(min&&!kg&&!rep)s.dur=min[1]+'分';
+      if(Object.keys(s).length)cur.sets.push(s);
+    }else{
+      cur={id:uid(),date,name:line,sets:[],memo:''}; items.push(cur);
+    }
+  });
+  return {date, items:items.filter(i=>i.sets.length)};
+}
+function importBurnfit(){
+  const t=document.getElementById('bfText').value.trim();
+  if(!t){alert('BurnFitの記録テキストを貼ってね');return;}
+  const {date,items}=parseBurnfit(t);
+  if(!items.length){alert('種目・セットが読み取れませんでした。書式を確認してね');return;}
+  const summary=items.map(i=>`・${i.name}（${i.sets.length}セット）`).join('\n');
+  if(!confirm(`${date} の記録として次を追加します：\n\n${summary}\n\nよろしい？`))return;
+  items.forEach(i=>D.workouts.push(i));
+  save();render();
+}
 function addTemplate(){const name=document.getElementById('tpName').value.trim();if(!name)return;
   const ex=document.getElementById('tpEx').value.split(',').map(s=>s.trim()).filter(Boolean);
   D.templates.push({id:uid(),name,exercises:ex});save();render();}
@@ -295,6 +336,58 @@ function vRun(){
 }
 function saveRun(){const km=document.getElementById('rKm').value,min=document.getElementById('rMin').value;
   if(!km&&!min){return;}D.runs.push({id:uid(),date:document.getElementById('rDate').value||today(),km,min,memo:document.getElementById('rMemo').value.trim()});save();render();}
+
+/* ============ タイマー（ストップウォッチ / インターバル）============ */
+function vTimer(){
+  return `
+  <div class="card">
+    <h3 style="margin-top:0">⏱ ストップウォッチ</h3>
+    <div id="swDisp" class="timerBig">${fmtT(_sw.t)}</div>
+    <div class="flex2"><button class="btn" id="swBtn" onclick="swToggle()">${_sw.run?'一時停止':(_sw.t?'再開':'スタート')}</button>
+      <button class="btn gray" onclick="swReset()">リセット</button></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">🔁 インターバルタイマー</h3>
+    <div class="flex3">
+      <div><label style="margin:0">運動(秒)</label><input id="ivWork" type="number" inputmode="numeric" value="${_iv.work}"></div>
+      <div><label style="margin:0">休憩(秒)</label><input id="ivRest" type="number" inputmode="numeric" value="${_iv.rest}"></div>
+      <div><label style="margin:0">セット数</label><input id="ivRounds" type="number" inputmode="numeric" value="${_iv.rounds}"></div>
+    </div>
+    <div id="ivDisp" class="timerBig ${_iv.phase}">${_iv.phase?_iv.left:'--'}</div>
+    <div id="ivPhase" class="muted" style="text-align:center;font-weight:600">${_iv.phase?(_iv.phase==='work'?'運動':'休憩')+`  ${_iv.round+1}/${_iv.rounds}`:''}</div>
+    <div class="flex2" style="margin-top:8px"><button class="btn" id="ivBtn" onclick="ivToggle()">${_iv.run?'一時停止':(_iv.phase?'再開':'スタート')}</button>
+      <button class="btn gray" onclick="ivReset()">リセット</button></div>
+    <div class="hint">運動→休憩を自動でくり返し、切替時に音とバイブでお知らせ。※画面ロックで止まるので画面はオンのままで。</div>
+  </div>`;
+}
+let _sw={t:0,run:false,iv:null};
+function fmtT(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function swTick(){_sw.t++;const d=document.getElementById('swDisp');if(d)d.textContent=fmtT(_sw.t);}
+function swToggle(){const b=document.getElementById('swBtn');
+  if(_sw.run){clearInterval(_sw.iv);_sw.run=false;b.textContent='再開';}
+  else{_sw.iv=setInterval(swTick,1000);_sw.run=true;b.textContent='一時停止';}}
+function swReset(){clearInterval(_sw.iv);_sw={t:0,run:false,iv:null};const d=document.getElementById('swDisp');if(d)d.textContent='00:00';const b=document.getElementById('swBtn');if(b)b.textContent='スタート';}
+let _iv={run:false,timer:null,phase:'',left:0,round:0,work:40,rest:20,rounds:8};
+function beep(f){try{const c=new (window.AudioContext||window.webkitAudioContext)();const o=c.createOscillator(),g=c.createGain();o.frequency.value=f||880;o.connect(g);g.connect(c.destination);g.gain.setValueAtTime(0.25,c.currentTime);o.start();o.stop(c.currentTime+0.18);}catch(e){}if(navigator.vibrate)navigator.vibrate(160);}
+function ivRender(){const d=document.getElementById('ivDisp'),p=document.getElementById('ivPhase');
+  if(d){d.textContent=_iv.left;d.className='timerBig '+_iv.phase;}
+  if(p)p.textContent=(_iv.phase==='work'?'運動':'休憩')+`  ${_iv.round+1}/${_iv.rounds}`;}
+function ivStep(){_iv.left--;
+  if(_iv.left<=0){
+    if(_iv.phase==='work'){_iv.round++;if(_iv.round>=_iv.rounds){ivDone();return;}_iv.phase='rest';_iv.left=_iv.rest;beep(440);}
+    else{_iv.phase='work';_iv.left=_iv.work;beep(880);}
+  }
+  ivRender();}
+function ivToggle(){const b=document.getElementById('ivBtn');
+  if(_iv.run){clearInterval(_iv.timer);_iv.run=false;b.textContent='再開';return;}
+  if(_iv.phase===''){_iv.work=+document.getElementById('ivWork').value||40;_iv.rest=+document.getElementById('ivRest').value||20;_iv.rounds=+document.getElementById('ivRounds').value||8;_iv.round=0;_iv.phase='work';_iv.left=_iv.work;beep(880);}
+  _iv.timer=setInterval(ivStep,1000);_iv.run=true;b.textContent='一時停止';ivRender();}
+function ivReset(){clearInterval(_iv.timer);_iv={run:false,timer:null,phase:'',left:0,round:0,work:40,rest:20,rounds:8};
+  const d=document.getElementById('ivDisp');if(d){d.textContent='--';d.className='timerBig';}
+  const p=document.getElementById('ivPhase');if(p)p.textContent='';const b=document.getElementById('ivBtn');if(b)b.textContent='スタート';}
+function ivDone(){clearInterval(_iv.timer);_iv.run=false;_iv.phase='';
+  const d=document.getElementById('ivDisp');if(d){d.textContent='完了';d.className='timerBig';}
+  const p=document.getElementById('ivPhase');if(p)p.textContent='おつかれさま！';const b=document.getElementById('ivBtn');if(b)b.textContent='スタート';beep(660);}
 
 /* ============ 食事（食事 / サプリ）============ */
 function vShoku(){
