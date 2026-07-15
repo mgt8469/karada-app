@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="カラダ">
+<title>カラダ管理</title>
+<style>
+  :root{
+    --bg:#f6f5f2; --card:#ffffff; --ink:#2b2b2b; --sub:#8a8a8a;
+    --line:#e7e4de; --accent:#2f9e83; --accent2:#e0a86b;
+    --warn:#c96a5a; --shadow:0 1px 3px rgba(0,0,0,.06);
+    --r:14px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;
+    padding-bottom:76px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:520px;margin:0 auto;padding:0 14px}
+  header{position:sticky;top:0;z-index:20;background:rgba(246,245,242,.92);backdrop-filter:blur(8px);
+    padding:14px 14px 8px;display:flex;align-items:center;justify-content:space-between}
+  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+  header h1 span{color:var(--accent)}
+  .gear{background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);padding:4px}
+  h2{font-size:15px;margin:18px 0 8px;font-weight:700}
+  h3{font-size:13px;margin:14px 0 6px;color:var(--sub);font-weight:600}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
+    padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .muted{color:var(--sub);font-size:13px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  label{font-size:13px;color:var(--sub);display:block;margin:8px 0 3px}
+  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;
+    font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
+  textarea{resize:vertical;min-height:52px}
+  input[type=checkbox]{width:auto}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 14px;
+    font-size:15px;font-weight:600;cursor:pointer;width:100%}
+  .btn.sm{width:auto;padding:8px 12px;font-size:13px}
+  .btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
+  .btn.gray{background:#efece7;color:var(--ink)}
+  .btn.warn{background:var(--warn)}
+  .chip{display:inline-block;padding:6px 11px;border-radius:999px;border:1px solid var(--line);
+    background:#fff;font-size:13px;cursor:pointer;margin:0 6px 6px 0;color:var(--ink)}
+  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .chip.tag.on{background:var(--accent2);border-color:var(--accent2)}
+  .subtabs{display:flex;gap:6px;margin:6px 0 4px}
+  .subtabs button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:10px;
+    font-size:13px;font-weight:600;color:var(--sub);cursor:pointer}
+  .subtabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .item{border-bottom:1px solid var(--line);padding:9px 0;font-size:14px}
+  .item:last-child{border-bottom:none}
+  .item .d{font-size:12px;color:var(--sub)}
+  .flex2{display:flex;gap:8px}.flex2>*{flex:1}
+  .flex3{display:flex;gap:6px}.flex3>*{flex:1}
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#fff;border-top:1px solid var(--line);
+    display:flex;max-width:520px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
+  nav button{flex:1;background:none;border:none;padding:9px 0 8px;font-size:10px;color:var(--sub);cursor:pointer}
+  nav button .ic{display:block;font-size:20px;margin-bottom:2px}
+  nav button.on{color:var(--accent)}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:#efece7;color:var(--sub)}
+  .pill.hot{background:#fbe7e2;color:var(--warn)}
+  .pill.ok{background:#e3f1ec;color:var(--accent)}
+  .del{color:var(--warn);font-size:12px;background:none;border:none;cursor:pointer;padding:2px 4px}
+  .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .gallery img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:pointer}
+  .banner{background:#e3f1ec;border:1px solid #cfe6dd;color:#2a6b58;font-size:12px;
+    padding:9px 11px;border-radius:10px;margin-bottom:10px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;
+    align-items:center;justify-content:center;padding:16px}
+  .overlay.on{display:flex}
+  .overlay img{max-width:100%;max-height:80vh;border-radius:10px}
+  .sheet{position:fixed;inset:0;background:var(--bg);z-index:40;overflow-y:auto;display:none}
+  .sheet.on{display:block}
+  .close{background:none;border:none;font-size:22px;color:var(--sub);cursor:pointer}
+  .kpi{display:flex;gap:8px}.kpi>div{flex:1;text-align:center;background:#fff;border:1px solid var(--line);
+    border-radius:10px;padding:8px 4px}
+  .kpi b{font-size:18px;display:block}.kpi span{font-size:11px;color:var(--sub)}
+  svg{display:block;width:100%;height:auto}
+  .hint{font-size:12px;color:var(--sub);margin-top:4px}
+  .stp{display:flex;align-items:center;gap:4px}
+  .stp button{width:36px;height:40px;border:1px solid var(--line);background:#fff;border-radius:8px;
+    font-size:18px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:700}
+  .stp input{text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>カラダ<span>管理</span></h1>
+  <button class="gear" onclick="openSettings()">⚙️</button>
+</header>
+<div class="wrap" id="view"></div>
+
+<nav id="nav"></nav>
+
+<!-- 設定シート -->
+<div class="sheet" id="settingsSheet"></div>
+<!-- 画像拡大 -->
+<div class="overlay" id="imgOverlay" onclick="this.classList.remove('on')"><img id="imgBig"></div>
+
+<script>
+/* ============ データ層 ============ */
+const KEY='karada_v1';
+const DEFAULT={
+  profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:''},
+  templates:[], workouts:[], runs:[], meals:[],
+  supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
+  photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン']
+};
+let D=load();
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));return r?Object.assign(JSON.parse(JSON.stringify(DEFAULT)),r):JSON.parse(JSON.stringify(DEFAULT));}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
+function save(){localStorage.setItem(KEY,JSON.stringify(D));}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const today=()=>new Date().toISOString().slice(0,10);
+const fmtD=s=>{const d=new Date(s+'T00:00');return (d.getMonth()+1)+'/'+d.getDate();};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ============ 画像層 (IndexedDB) ============ */
+let _db;
+function db(){return new Promise((res,rej)=>{if(_db)return res(_db);
+  const r=indexedDB.open('karada_imgs',1);
+  r.onupgradeneeded=e=>{e.target.result.createObjectStore('imgs',{keyPath:'id'});};
+  r.onsuccess=e=>{_db=e.target.result;res(_db);};r.onerror=e=>rej(e);});}
+async function imgPut(o){const d=await db();return new Promise((res,rej)=>{const t=d.transaction('imgs','readwrite');t.objectStore('imgs').put(o);t.oncomplete=()=>res();t.onerror=rej;});}
+async function imgDel(id){const d=await db();return new Promise((res)=>{const t=d.transaction('imgs','readwrite');t.objectStore('imgs').delete(id);t.oncomplete=()=>res();});}
+async function imgAll(){const d=await db();return new Promise((res)=>{const t=d.transaction('imgs','readonly');const rq=t.objectStore('imgs').getAll();rq.onsuccess=()=>res(rq.result||[]);});}
+function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new Image();const rd=new FileReader();
+  rd.onload=()=>{img.onload=()=>{let{width:w,height:h}=img;if(w>h&&w>max){h=h*max/w;w=max;}else if(h>max){w=w*max/h;h=max;}
+    const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+    res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
+
+/* ============ ルーティング ============ */
+const TABS=[['今日','🏠'],['トレ','🏋️'],['食事','🍽️'],['からだ','📏'],['写真','📷']];
+let tab='今日', sub={};
+function setTab(t){tab=t;render();window.scrollTo(0,0);}
+function setSub(k,v){sub[k]=v;render();}
+function render(){
+  document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
+    `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${i}</span>${t}</button>`).join('');
+  const v=document.getElementById('view');
+  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'写真':vPhoto}[tab])();
+  if(tab==='写真')loadGallery();
+  if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
+  const sr=document.getElementById('setRows');if(sr)renderSetRows();
+}
+
+/* ============ 今日 ============ */
+function vToday(){
+  const t=today();
+  const sc=D.schedule.filter(s=>s.date===t);
+  const w=D.workouts.filter(x=>x.date===t).length;
+  const m=D.meals.filter(x=>x.date===t);
+  const sup=D.supLogs.filter(x=>x.date===t&&x.taken).length;
+  const cond=D.conditions.find(x=>x.date===t);
+  const greet=(D.profile.name?D.profile.name+' さん、':'')+'今日もおつかれさま';
+  return `
+  <h2>${esc(greet)}</h2>
+  ${D.profile.goal?`<div class="card"><h3 style="margin-top:0">🎯 目標</h3>${esc(D.profile.goal)}</div>`:''}
+  <div class="card">
+    <h3 style="margin-top:0">📅 今日の予定</h3>
+    ${sc.length?sc.map(s=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
+      <input type="checkbox" ${s.done?'checked':''} onchange="toggleSchedule('${s.id}')">
+      <span style="${s.done?'text-decoration:line-through;color:var(--sub)':''}">
+      <span class="pill ${s.type==='運動'?'':'ok'}">${s.type}</span> ${esc(s.title)} ${s.time?`<span class="muted">${esc(s.time)}</span>`:''}</span>
+      </label><button class="del" onclick="delItem('schedule','${s.id}')">削除</button></div>`).join('')
+      :'<div class="muted">まだ予定なし</div>'}
+    <div class="flex3" style="margin-top:10px">
+      <select id="scType"><option>運動</option><option>食事</option></select>
+      <input id="scTitle" placeholder="内容（例：脚トレ）">
+      <input id="scTime" placeholder="時間 任意" style="max-width:90px">
+    </div>
+    <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="addSchedule()">＋予定を追加</button>
+  </div>
+  <div class="kpi">
+    <div><b>${w}</b><span>トレ</span></div>
+    <div><b>${m.length}</b><span>食事記録</span></div>
+    <div><b>${sup}</b><span>サプリ✓</span></div>
+    <div><b>${cond?(cond.period?'🩸':'—'):'—'}</b><span>周期</span></div>
+  </div>
+  <h3>クイック記録</h3>
+  <div class="row">
+    <button class="chip" onclick="setTab('トレ')">🏋️ トレを記録</button>
+    <button class="chip" onclick="setSub('tre','ラン')||setTab('トレ')">🏃 ラン</button>
+    <button class="chip" onclick="setTab('食事')">🍽️ 食事</button>
+    <button class="chip" onclick="setSub('shoku','サプリ')||setTab('食事')">💊 サプリ</button>
+    <button class="chip" onclick="setSub('kbody','採寸')||setTab('からだ')">📏 採寸</button>
+    <button class="chip" onclick="setSub('kbody','体調・周期')||setTab('からだ')">🌙 体調</button>
+  </div>`;
+}
+function addSchedule(){const title=document.getElementById('scTitle').value.trim();if(!title)return;
+  D.schedule.push({id:uid(),date:today(),type:document.getElementById('scType').value,title,time:document.getElementById('scTime').value.trim(),done:false});save();render();}
+function toggleSchedule(id){const s=D.schedule.find(x=>x.id===id);if(s){s.done=!s.done;save();render();}}
+
+/* ============ トレ（筋トレ / ラン）============ */
+function vTre(){
+  const s=sub.tre||'筋トレ';
+  return `<div class="subtabs">
+    ${['筋トレ','ラン'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('tre','${x}')">${x}</button>`).join('')}
+    </div>${s==='筋トレ'?vKin():vRun()}`;
+}
+function vKin(){
+  const t=today();
+  const tmplOpts=D.templates.map(tp=>`<option value="${tp.id}">${esc(tp.name)}</option>`).join('');
+  const todayW=D.workouts.filter(x=>x.date===t);
+  return `
+  <div class="card">
+    <h3 style="margin-top:0">今日のトレを記録</h3>
+    <label>種目</label>
+    <input id="wName" placeholder="種目名（例：スクワット）" list="exList" oninput="showPrev()">
+    <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
+    <div id="prevHint" class="hint"></div>
+    <div id="setRows"></div>
+    <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="addSetRow()">＋セットを足す</button>
+    <label style="margin-top:8px">メモ（意識点・調子）</label>
+    <textarea id="wMemo" placeholder="例：ボトムで骨盤の後傾に注意"></textarea>
+    <button class="btn" style="margin-top:10px" onclick="saveWorkout()">記録する</button>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">📋 メニュー（テンプレ）</h3>
+    <div class="muted">今のBurnFitのメニューを引き継ぐ用。作っておくとワンタップで種目を呼べる（AI導入後は相談・提案も）</div>
+    <div class="muted">↓種目をタップすると入力欄にセット＆前回の記録が出る</div>
+    ${D.templates.map(tp=>`<div class="item"><div class="row" style="justify-content:space-between"><b>${esc(tp.name)}</b>
+      <button class="del" onclick="delItem('templates','${tp.id}')">削除</button></div>
+      <div class="row" style="margin-top:4px">${tp.exercises.map(e=>`<button class="chip" onclick="pickEx('${esc(e).replace(/'/g,'')}')">${esc(e)}</button>`).join('')||'<span class="muted">種目なし</span>'}</div></div>`).join('')}
+    <div class="flex2" style="margin-top:10px">
+      <input id="tpName" placeholder="テンプレ名（例：脚の日）">
+      <input id="tpEx" placeholder="種目をカンマ区切り">
+    </div>
+    <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="addTemplate()">＋テンプレ作成</button>
+  </div>
+  <h3>今日の記録</h3>
+  ${todayW.length?todayW.map(w=>wItem(w)).join(''):'<div class="muted">まだなし</div>'}
+  <h3>これまで</h3>
+  ${D.workouts.filter(x=>x.date!==t).slice(-15).reverse().map(w=>wItem(w)).join('')||'<div class="muted">—</div>'}`;
+}
+let _setRows=[{weight:'',reps:''}];
+function renderSetRows(){const el=document.getElementById('setRows');if(!el)return;
+  el.innerHTML=_setRows.map((s,i)=>`<div class="row" style="margin-top:8px;align-items:flex-end;gap:6px">
+    <div style="flex:1"><label style="margin:0 0 2px">重量kg（セット${i+1}）</label>
+      <div class="stp"><button type="button" onclick="stp(${i},'weight',-2.5)">−</button>
+      <input type="number" inputmode="decimal" value="${s.weight}" onchange="_setRows[${i}].weight=this.value">
+      <button type="button" onclick="stp(${i},'weight',2.5)">＋</button></div></div>
+    <div style="flex:1"><label style="margin:0 0 2px">回数</label>
+      <div class="stp"><button type="button" onclick="stp(${i},'reps',-1)">−</button>
+      <input type="number" inputmode="numeric" value="${s.reps}" onchange="_setRows[${i}].reps=this.value">
+      <button type="button" onclick="stp(${i},'reps',1)">＋</button></div></div>
+    <button class="del" style="flex:0 0 auto;padding-bottom:12px" onclick="_setRows.splice(${i},1);renderSetRows()">✕</button></div>`).join('');}
+function stp(i,f,d){const v=parseFloat(_setRows[i][f])||0;_setRows[i][f]=Math.max(0,Math.round((v+d)*10)/10);renderSetRows();}
+function addSetRow(){const last=_setRows[_setRows.length-1]||{weight:'',reps:''};_setRows.push({weight:last.weight,reps:last.reps});renderSetRows();}
+function showPrev(){const el=document.getElementById('prevHint');if(!el)return;
+  const name=(document.getElementById('wName').value||'').trim();if(!name){el.innerHTML='';return;}
+  const prev=[...D.workouts].reverse().find(w=>w.name===name);
+  if(!prev){el.innerHTML='はじめての種目だね';return;}
+  el.innerHTML=`前回 ${fmtD(prev.date)}：${prev.sets.map(s=>`${s.weight||'-'}kg×${s.reps||'-'}`).join(', ')||'記録なし'} `+
+    `<button class="btn sm ghost" style="margin-top:4px" onclick='copyPrev(${JSON.stringify(prev.sets)})'>前回をコピー</button>`;}
+function copyPrev(sets){_setRows=(sets&&sets.length?sets:[{weight:'',reps:''}]).map(s=>({weight:s.weight,reps:s.reps}));renderSetRows();}
+function pickEx(name){const el=document.getElementById('wName');if(el){el.value=name;showPrev();window.scrollTo(0,0);}}
+function saveWorkout(){const name=document.getElementById('wName').value.trim();if(!name){alert('種目名を入れてね');return;}
+  const sets=_setRows.filter(s=>s.weight||s.reps);
+  D.workouts.push({id:uid(),date:today(),name,sets,memo:document.getElementById('wMemo').value.trim()});
+  _setRows=[{weight:'',reps:''}];save();render();}
+function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
+  <b>${esc(w.name)}</b><span class="d">${fmtD(w.date)}<button class="del" onclick="delItem('workouts','${w.id}')">削除</button></span></div>
+  <div class="muted">${w.sets.map(s=>`${s.weight||'-'}kg×${s.reps||'-'}`).join(' , ')||'セットなし'}</div>
+  ${w.memo?`<div style="font-size:13px;margin-top:3px">📝 ${esc(w.memo)}</div>`:''}</div>`;}
+function addTemplate(){const name=document.getElementById('tpName').value.trim();if(!name)return;
+  const ex=document.getElementById('tpEx').value.split(',').map(s=>s.trim()).filter(Boolean);
+  D.templates.push({id:uid(),name,exercises:ex});save();render();}
+
+function vRun(){
+  const runs=D.runs.slice().reverse();
+  const tot=D.runs.reduce((a,r)=>a+(+r.km||0),0);
+  return `
+  <div class="banner">走ったことなくても大丈夫。まずは距離と時間を記録するだけ。プランの提案はAI導入後にできるよ。</div>
+  <div class="card">
+    <h3 style="margin-top:0">ランを記録</h3>
+    <div class="flex3">
+      <div><label style="margin:0">距離km</label><input id="rKm" type="number" inputmode="decimal"></div>
+      <div><label style="margin:0">時間分</label><input id="rMin" type="number" inputmode="decimal"></div>
+      <div><label style="margin:0">日付</label><input id="rDate" type="date" value="${today()}"></div>
+    </div>
+    <label>メモ（体感・コース）</label>
+    <textarea id="rMemo" placeholder="例：3kmで脚パンパン。呼吸は余裕"></textarea>
+    <button class="btn" style="margin-top:10px" onclick="saveRun()">記録する</button>
+  </div>
+  <div class="kpi"><div><b>${D.runs.length}</b><span>回</span></div><div><b>${tot.toFixed(1)}</b><span>合計km</span></div></div>
+  <h3>履歴</h3>
+  ${runs.length?runs.map(r=>{const p=(r.km>0)?(r.min/r.km):0;const pm=Math.floor(p),ps=Math.round((p-pm)*60);
+    return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
+    <b>${(+r.km||0)}km / ${(+r.min||0)}分</b><span class="d">${fmtD(r.date)}<button class="del" onclick="delItem('runs','${r.id}')">削除</button></span></div>
+    <div class="muted">ペース ${p?pm+"'"+String(ps).padStart(2,'0')+'"/km':'—'}</div>
+    ${r.memo?`<div style="font-size:13px">📝 ${esc(r.memo)}</div>`:''}</div>`;}).join(''):'<div class="muted">—</div>'}`;
+}
+function saveRun(){const km=document.getElementById('rKm').value,min=document.getElementById('rMin').value;
+  if(!km&&!min){return;}D.runs.push({id:uid(),date:document.getElementById('rDate').value||today(),km,min,memo:document.getElementById('rMemo').value.trim()});save();render();}
+
+/* ============ 食事（食事 / サプリ）============ */
+function vShoku(){
+  const s=sub.shoku||'食事';
+  return `<div class="subtabs">
+    ${['食事','サプリ'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('shoku','${x}')">${x}</button>`).join('')}
+    </div>${s==='食事'?vMeal():vSup()}`;
+}
+const LEVELS=['軽め','普通','しっかり','食べ過ぎ','チートデイ'];
+let _mealLevel='普通';
+function vMeal(){
+  const t=today();const tm=D.meals.filter(x=>x.date===t);
+  return `
+  <div class="banner">カロリー計算は無理しなくてOK。写真は端末に残しておけば、AI導入後に自動で栄養をざっくり分析できるよ。撮れない日は「チートデイ」でざっくり。</div>
+  <div class="card">
+    <h3 style="margin-top:0">食事を記録</h3>
+    <div class="flex2">
+      <select id="mType"><option>朝</option><option>昼</option><option>夜</option><option>間食</option><option>お酒・外食</option></select>
+      <input id="mDate" type="date" value="${today()}">
+    </div>
+    <label>食べたもの</label>
+    <input id="mMemo" placeholder="例：鶏むね、玄米、サラダ">
+    <label>ボリューム感</label>
+    <div class="row" id="lvRow">${LEVELS.map(l=>`<button class="chip ${l===_mealLevel?'on':''}" onclick="_mealLevel='${l}';document.querySelectorAll('#lvRow .chip').forEach(c=>c.classList.remove('on'));event.target.classList.add('on')">${l}</button>`).join('')}</div>
+    <label>写真（任意・端末内のみ）</label>
+    <input id="mPhoto" type="file" accept="image/*">
+    <button class="btn" style="margin-top:10px" onclick="saveMeal()">記録する</button>
+  </div>
+  <h3>今日の食事</h3>
+  ${tm.length?tm.map(m=>mealItem(m)).join(''):'<div class="muted">まだなし</div>'}
+  <h3>これまで</h3>
+  ${D.meals.filter(x=>x.date!==t).slice(-12).reverse().map(m=>mealItem(m)).join('')||'<div class="muted">—</div>'}`;
+}
+async function saveMeal(){const memo=document.getElementById('mMemo').value.trim();
+  const f=document.getElementById('mPhoto').files[0];let photoId='';
+  if(f){photoId=uid();const dataUrl=await fileToDataUrl(f);await imgPut({id:photoId,kind:'meal',date:document.getElementById('mDate').value,dataUrl,note:memo});}
+  D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoId});
+  _mealLevel='普通';save();render();}
+function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
+  return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
+  <b>${esc(m.type)}</b><span class="d">${fmtD(m.date)}<button class="del" onclick="delMeal('${m.id}')">削除</button></span></div>
+  <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span>${m.photoId?' 📷':''}</div></div>`;}
+async function delMeal(id){const m=D.meals.find(x=>x.id===id);if(m&&m.photoId)await imgDel(m.photoId);D.meals=D.meals.filter(x=>x.id!==id);save();render();}
+
+function vSup(){
+  const t=today();
+  return `
+  <div class="banner">タンパク質だけじゃ足りない、を管理する場所。常用サプリを登録→毎日チェック。量・タイミングの最適化アドバイスはAI導入後に。</div>
+  <div class="card">
+    <h3 style="margin-top:0">💊 今日のチェック</h3>
+    <div class="muted">登録したサプリをタップで「飲んだ」記録（時刻つき）。もう一度タップで取り消し。</div>
+    ${D.supList.length?D.supList.map(s=>{const log=D.supLogs.find(l=>l.date===t&&l.supId===s.id&&l.taken);
+      return `<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
+        <input type="checkbox" ${log?'checked':''} onchange="toggleSup('${s.id}')">
+        <span style="${log?'color:var(--sub)':''};flex:1"><b>${esc(s.name)}</b> <span class="muted">${esc(s.dose)}${s.timing?' / '+esc(s.timing):''}</span></span>
+        ${log&&log.time?`<span class="pill ok">✓ ${log.time}</span>`:''}</label></div>`;}).join('')
+      :'<div class="muted">まず下でサプリを登録してね</div>'}
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">常用サプリを登録</h3>
+    <input id="supName" placeholder="名前（例：ホエイプロテイン）">
+    <div class="flex2" style="margin-top:6px">
+      <input id="supDose" placeholder="量（例：30g）">
+      <input id="supTiming" placeholder="タイミング（例：トレ後）">
+    </div>
+    <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="addSup()">＋登録</button>
+    ${D.supList.map(s=>`<div class="item"><b>${esc(s.name)}</b> <span class="muted">${esc(s.dose)} / ${esc(s.timing)}</span>
+      <button class="del" onclick="delItem('supList','${s.id}')">削除</button></div>`).join('')}
+  </div>`;
+}
+function addSup(){const name=document.getElementById('supName').value.trim();if(!name)return;
+  D.supList.push({id:uid(),name,dose:document.getElementById('supDose').value.trim(),timing:document.getElementById('supTiming').value.trim()});save();render();}
+function toggleSup(supId){const t=today();const now=new Date().toTimeString().slice(0,5);
+  const i=D.supLogs.findIndex(l=>l.date===t&&l.supId===supId);
+  if(i>=0){D.supLogs[i].taken=!D.supLogs[i].taken;if(D.supLogs[i].taken)D.supLogs[i].time=now;}
+  else D.supLogs.push({id:uid(),date:t,supId,taken:true,time:now});save();render();}
+
+/* ============ からだ（採寸 / 体調・周期 / グラフ）============ */
+const MFIELDS=[['waist','ウエスト'],['hip','ヒップ'],['thigh','太もも'],['arm','二の腕'],['bust','バスト'],['weight','体重kg']];
+function vKarada(){
+  const s=sub.kbody||'採寸';
+  return `<div class="subtabs">
+    ${['採寸','体調・周期','グラフ'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('kbody','${x}')">${x}</button>`).join('')}
+    </div>${s==='採寸'?vMeasure():s==='体調・周期'?vCond():vChart()}`;
+}
+function vMeasure(){
+  return `
+  <div class="banner">週1でOK（同じ時間・同じ条件で）。見た目の変化を一番正直に映す数字。全部埋めなくても大丈夫。</div>
+  <div class="card">
+    <h3 style="margin-top:0">採寸を記録</h3>
+    <label>日付</label><input id="msDate" type="date" value="${today()}">
+    <div class="row" style="margin-top:4px">
+      ${MFIELDS.map(([k,l])=>`<div style="flex:1 1 30%"><label style="margin:2px 0">${l}</label>
+        <input id="ms_${k}" type="number" inputmode="decimal" placeholder="cm"></div>`).join('')}
+    </div>
+    <label>メモ</label><input id="msMemo" placeholder="例：生理前でむくみ気味">
+    <button class="btn" style="margin-top:10px" onclick="saveMeasure()">記録する</button>
+  </div>
+  <h3>履歴</h3>
+  ${D.measures.slice().reverse().map(m=>`<div class="card" style="padding:11px 14px">
+    <div class="row" style="justify-content:space-between"><b>${fmtD(m.date)}</b>
+    <button class="del" onclick="delItem('measures','${m.id}')">削除</button></div>
+    <div class="muted">${MFIELDS.filter(([k])=>m[k]).map(([k,l])=>`${l} ${m[k]}`).join(' / ')||'—'}</div>
+    ${m.memo?`<div style="font-size:13px">📝 ${esc(m.memo)}</div>`:''}</div>`).join('')||'<div class="muted">—</div>'}`;
+}
+function saveMeasure(){const o={id:uid(),date:document.getElementById('msDate').value||today(),memo:document.getElementById('msMemo').value.trim()};
+  let any=false;MFIELDS.forEach(([k])=>{const v=document.getElementById('ms_'+k).value;if(v){o[k]=+v;any=true;}});
+  if(!any){alert('1つは数値を入れてね');return;}D.measures.push(o);D.measures.sort((a,b)=>a.date<b.date?-1:1);save();render();}
+
+let _period=false;
+function vCond(){
+  const t=today();const last=[...D.conditions].reverse().find(c=>c.period);
+  let cycleDay='—';if(last){cycleDay=Math.floor((new Date(t)-new Date(last.date))/864e5)+1;}
+  return `
+  <div class="banner">⚠️ iPhoneヘルスケアの自動連携はWeb版では不可（将来ネイティブ化で対応）。今は手入力、またはヘルスケアを見て転記してね。</div>
+  <div class="card">
+    <h3 style="margin-top:0">体調を記録</h3>
+    <label>日付</label><input id="cDate" type="date" value="${today()}">
+    <label style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="cPeriod"> 🩸 今日から生理</label>
+    <label>気分・コンディション</label>
+    <div class="row" id="moodRow">${['絶好調','普通','だるい','痛み・不調'].map(m=>`<button class="chip" onclick="document.querySelectorAll('#moodRow .chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');window._mood='${m}'">${m}</button>`).join('')}</div>
+    <label>メモ</label><input id="cMemo" placeholder="例：PMSで甘いもの欲しい">
+    <button class="btn" style="margin-top:10px" onclick="saveCond()">記録する</button>
+    <div class="hint">今日の周期：${cycleDay}日目${last?`（前回開始 ${fmtD(last.date)}）`:'（生理開始を記録すると計算されます）'}</div>
+  </div>
+  <h3>履歴</h3>
+  ${D.conditions.slice().reverse().slice(0,20).map(c=>`<div class="card" style="padding:11px 14px">
+    <div class="row" style="justify-content:space-between"><b>${fmtD(c.date)} ${c.period?'🩸':''}</b>
+    <button class="del" onclick="delItem('conditions','${c.id}')">削除</button></div>
+    <div class="muted">${esc(c.mood||'—')}${c.memo?' / '+esc(c.memo):''}</div></div>`).join('')||'<div class="muted">—</div>'}`;
+}
+function saveCond(){D.conditions.push({id:uid(),date:document.getElementById('cDate').value||today(),
+  period:document.getElementById('cPeriod').checked,mood:window._mood||'',memo:document.getElementById('cMemo').value.trim()});
+  D.conditions.sort((a,b)=>a.date<b.date?-1:1);window._mood='';save();render();}
+
+function vChart(){
+  return `<div class="card"><h3 style="margin-top:0">推移グラフ</h3>
+    <select id="chartPick" onchange="drawChart()">${MFIELDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
+    <div id="chartBox" style="margin-top:12px"></div></div>`;
+}
+function drawChart(){const box=document.getElementById('chartBox');if(!box)return;
+  const k=document.getElementById('chartPick').value;
+  const pts=D.measures.filter(m=>m[k]!=null).map(m=>({x:m.date,y:m[k]}));
+  if(pts.length<2){box.innerHTML='<div class="muted">データが2件以上たまるとグラフが出ます</div>';return;}
+  const W=460,H=180,pad=30;const ys=pts.map(p=>p.y);const mn=Math.min(...ys),mx=Math.max(...ys);const rng=(mx-mn)||1;
+  const X=i=>pad+i*(W-2*pad)/(pts.length-1);const Y=v=>H-pad-((v-mn)/rng)*(H-2*pad);
+  const line=pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
+  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3" fill="#2f9e83"/>`).join('');
+  const labs=pts.map((p,i)=>(i%Math.ceil(pts.length/5)===0||i===pts.length-1)?`<text x="${X(i)}" y="${H-8}" font-size="10" fill="#8a8a8a" text-anchor="middle">${fmtD(p.x)}</text>`:'').join('');
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}">
+    <text x="4" y="14" font-size="11" fill="#8a8a8a">${mx}</text><text x="4" y="${H-pad}" font-size="11" fill="#8a8a8a">${mn}</text>
+    <path d="${line}" fill="none" stroke="#2f9e83" stroke-width="2"/>${dots}${labs}</svg>
+    <div class="muted">最新 ${pts[pts.length-1].y}（${pts.length}件）</div>`;
+}
+
+/* ============ 写真 ============ */
+let _selTags=[];
+function vPhoto(){
+  return `
+  <div class="banner">🔒 写真は<b>この端末の中だけ</b>に保存。アップロードなし・AIには送りません。自分で見比べる用です。</div>
+  <div class="card">
+    <h3 style="margin-top:0">写真を追加</h3>
+    <div class="row">
+      <button class="chip" id="kProg" onclick="window._pkind='progress';document.getElementById('kProg').classList.add('on');document.getElementById('kGoal').classList.remove('on')">進捗写真</button>
+      <button class="chip" id="kGoal" onclick="window._pkind='goal';document.getElementById('kGoal').classList.add('on');document.getElementById('kProg').classList.remove('on')">🎯 目標イメージ</button>
+    </div>
+    <label>変化タグ（進捗写真用・複数OK）</label>
+    <div class="row" id="tagRow">${D.photoTags.map(t=>`<button class="chip tag" onclick="toggleTag('${esc(t)}',this)">${esc(t)}</button>`).join('')}</div>
+    <label>一言メモ</label><input id="pNote" placeholder="例：くびれ出てきた／下腹まだ気になる">
+    <input id="pFile" type="file" accept="image/*" style="margin-top:8px">
+    <button class="btn" style="margin-top:10px" onclick="savePhoto()">保存する</button>
+  </div>
+  <h2>🎯 目標イメージ</h2>
+  <div class="gallery" id="galGoal"></div>
+  <h2>📸 進捗</h2>
+  <div class="gallery" id="galProg"></div>`;
+}
+function toggleTag(t,el){el.classList.toggle('on');if(_selTags.includes(t))_selTags=_selTags.filter(x=>x!==t);else _selTags.push(t);}
+async function savePhoto(){const f=document.getElementById('pFile').files[0];if(!f){alert('写真を選んでね');return;}
+  const dataUrl=await fileToDataUrl(f);
+  await imgPut({id:uid(),kind:window._pkind||'progress',date:today(),dataUrl,tags:_selTags.slice(),note:document.getElementById('pNote').value.trim()});
+  _selTags=[];window._pkind='progress';render();}
+async function loadGallery(){const all=await imgAll();
+  const g=all.filter(i=>i.kind==='goal').reverse(),p=all.filter(i=>i.kind==='progress').reverse();
+  const gg=document.getElementById('galGoal'),gp=document.getElementById('galProg');if(!gg)return;
+  gg.innerHTML=g.map(i=>`<img src="${i.dataUrl}" onclick="bigImg('${i.id}')">`).join('')||'<div class="muted">目標イメージを1枚追加してみて</div>';
+  gp.innerHTML=p.map(i=>`<img src="${i.dataUrl}" onclick="bigImg('${i.id}')">`).join('')||'<div class="muted">まだなし</div>';
+  window._imgs=all;}
+function bigImg(id){const i=(window._imgs||[]).find(x=>x.id===id);if(!i)return;
+  document.getElementById('imgBig').src=i.dataUrl;document.getElementById('imgOverlay').classList.add('on');
+  window._curImg=id;
+  const o=document.getElementById('imgOverlay');
+  o.innerHTML=`<div style="text-align:center"><img id="imgBig" src="${i.dataUrl}">
+    <div style="color:#fff;font-size:13px;margin-top:8px">${fmtD(i.date)} ${(i.tags||[]).map(esc).join(' ')} ${i.note?'・'+esc(i.note):''}</div>
+    <button class="btn warn sm" style="margin-top:10px" onclick="event.stopPropagation();delPhoto('${id}')">この写真を削除</button></div>`;}
+async function delPhoto(id){if(!confirm('削除する？'))return;await imgDel(id);document.getElementById('imgOverlay').classList.remove('on');loadGallery();}
+
+/* ============ 共通削除 ============ */
+function delItem(arr,id){if(!confirm('削除する？'))return;D[arr]=D[arr].filter(x=>x.id!==id);save();render();}
+
+/* ============ 設定 ============ */
+function openSettings(){const s=document.getElementById('settingsSheet');s.classList.add('on');
+  s.innerHTML=`<div class="wrap">
+    <header style="padding-left:0;padding-right:0"><h1>設定</h1><button class="close" onclick="document.getElementById('settingsSheet').classList.remove('on')">✕</button></header>
+    <div class="card">
+      <h3 style="margin-top:0">プロフィール</h3>
+      <label>名前</label><input id="pfName" value="${esc(D.profile.name)}">
+      <label>🎯 目標（理想の体型・方針）</label>
+      <textarea id="pfGoal" placeholder="例：無理なく続く範囲で、くびれと腹筋のラインを出す。期限は設けない">${esc(D.profile.goal)}</textarea>
+      <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="saveProfile()">保存</button>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">🐉 AIコーチ（開眼はまだ）</h3>
+      <div class="muted">土台が固まったら、ここにClaude APIキーを入れて竜の目を入れる。記録を踏まえた相談・食事写真分析・解剖学ディスカッション・メニュー提案が有効に。今は準備中。</div>
+      <label style="margin-top:8px">APIキー（未使用・保存のみ）</label>
+      <input id="pfKey" type="password" value="${esc(D.profile.apiKey)}" placeholder="開眼のときに設定">
+      <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.profile.apiKey=document.getElementById('pfKey').value.trim();save();alert('保存しました（まだAIは動きません）')">キーを保存</button>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">💾 バックアップ</h3>
+      <div class="muted">記録データをJSONで書き出し／読み込み。月1でiCloudに保存推奨。※写真は容量が大きいのでこのJSONには含まれません（端末内に保存）。</div>
+      <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="exportData()">データを書き出す</button>
+      <label style="margin-top:8px">読み込む（JSONを選択）</label>
+      <input type="file" accept="application/json" onchange="importData(this.files[0])">
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">変化タグの編集</h3>
+      <div class="muted">写真につける変化タグ。カンマ区切りで自由に。</div>
+      <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
+      <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
+    </div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v1（土台）・データは端末内保存</div>
+  </div>`;}
+function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
+function exportData(){const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='karada-backup-'+today()+'.json';a.click();}
+function importData(f){if(!f)return;const rd=new FileReader();rd.onload=()=>{try{D=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),JSON.parse(rd.result));save();alert('読み込みました');document.getElementById('settingsSheet').classList.remove('on');render();}catch(e){alert('読み込めませんでした');}};rd.readAsText(f);}
+
+/* ============ 起動 ============ */
+window._mood='';window._pkind='progress';
+render();
+</script>
+</body>
+</html>
