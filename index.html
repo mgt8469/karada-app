@@ -81,8 +81,8 @@
   svg{display:block;width:100%;height:auto}
   .hint{font-size:12px;color:var(--sub);margin-top:4px}
   .stp{display:flex;align-items:center;gap:4px}
-  .stp button{width:36px;height:40px;border:1px solid var(--line);background:#fff;border-radius:8px;
-    font-size:18px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:700}
+  .stp button{min-width:38px;height:40px;padding:0 4px;border:1px solid var(--line);background:#fff;border-radius:8px;
+    font-size:15px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:700}
   .stp input{text-align:center}
   .timerBig{font-size:48px;font-weight:700;text-align:center;margin:12px 0;font-variant-numeric:tabular-nums;letter-spacing:.02em}
   .timerBig.work{color:var(--accent)} .timerBig.rest{color:var(--accent2)}
@@ -98,6 +98,14 @@
   .planrow .nm{flex:1;font-size:14px}
   .planrow.done .nm{color:var(--sub);text-decoration:line-through}
   .minibtn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 8px;font-size:13px;cursor:pointer;color:var(--ink)}
+  .settbl{width:100%;border-collapse:collapse;margin-top:4px;font-size:13px}
+  .settbl td{padding:3px 2px}
+  .settbl tr.hd td{color:var(--sub);font-size:12px}
+  .miniset{display:flex;align-items:center;gap:3px}
+  .miniset button{width:26px;height:34px;border:1px solid var(--line);background:#fff;border-radius:6px;color:var(--accent);font-weight:700;cursor:pointer;flex:0 0 auto}
+  .miniset input{width:50px;text-align:center;padding:6px 2px}
+  .ck{width:38px;height:34px;border:1px solid var(--line);background:#fff;border-radius:7px;color:#cfcabf;cursor:pointer;font-weight:700}
+  .ck.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -121,7 +129,7 @@ const DEFAULT={
   profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:''},
   templates:[], workouts:[], runs:[], meals:[],
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
-  plan:null, soreness:[],
+  plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン']
 };
 let D=load();
@@ -158,7 +166,7 @@ function render(){
   v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'写真':vPhoto}[tab])();
   if(tab==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
-  const sr=document.getElementById('setRows');if(sr)renderSetRows();
+  startSessTick();
 }
 
 /* ============ 今日 ============ */
@@ -217,104 +225,127 @@ function vTre(){
 }
 function vKin(){
   const t=today();
-  const tmplOpts=D.templates.map(tp=>`<option value="${tp.id}">${esc(tp.name)}</option>`).join('');
-  const todayW=D.workouts.filter(x=>x.date===t);
   ensurePlan();
+  window._itemTimes=computeItemTimes();
+  const items=D.plan.items;
+  const totalVol=items.reduce((a,x)=>a+itemVol(x),0);
   const pastDates=[...new Set(D.workouts.map(w=>w.date))].sort().reverse();
   const recentEx=[...new Set(D.workouts.slice().reverse().map(w=>w.name))].slice(0,8);
+  const running=D.plan.startTs&&!D.plan.endTs;
   return `
   <div class="card">
-    <h3 style="margin-top:0">📅 今日のメニュー</h3>
-    <div class="muted">今日やる種目を並べる。↑↓で順番変更（ジムの混み具合で入替）。「記録」で下の入力欄に呼び出し→保存で✓。</div>
-    ${D.plan.items.length?D.plan.items.map((it,i)=>`<div class="planrow ${it.done?'done':''}">
-      <span class="nm">${it.done?'✓':(i+1)+'.'} ${esc(it.name)}</span>
-      <button class="minibtn" onclick="planMove(${i},-1)">↑</button>
-      <button class="minibtn" onclick="planMove(${i},1)">↓</button>
-      <button class="minibtn" style="color:var(--accent)" onclick="planRecord('${esc(it.name).replace(/'/g,'')}')">記録</button>
-      <button class="minibtn" style="color:var(--warn)" onclick="planRemove('${it.id}')">✕</button></div>`).join('')
-      :'<div class="muted">まだ空。下で種目を足すか、過去メニューを読み込んでね</div>'}
-    <div class="flex2" style="margin-top:10px">
-      <input id="planEx" placeholder="種目を追加" list="exList">
-      <button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addPlan()">追加</button>
-    </div>
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b>全体のボリューム</b><b style="font-size:18px">${totalVol}kg</b></div>
+    <div style="margin-top:8px">${sessCtrl()}</div>
+    ${running?`<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
+      <input type="checkbox" ${D.plan.restOn?'checked':''} onchange="toggleRest()"> 休憩タイマー：セット完了で
+      <input type="number" style="width:52px;padding:4px" value="${D.plan.restSec||60}" onchange="D.plan.restSec=+this.value||60;save()">秒カウント
+      <span id="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
+  </div>
+  <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
+  ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>'}
+  <div class="card">
+    <h3 style="margin-top:0">＋ 種目を追加</h3>
+    <div class="flex2"><input id="planEx" placeholder="種目名（例：スクワット）" list="exList"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addPlan()">追加</button></div>
     ${recentEx.length?`<div class="row" style="margin-top:6px">${recentEx.map(n=>`<button class="chip" onclick="addPlanName('${esc(n).replace(/'/g,'')}')">＋${esc(n)}</button>`).join('')}</div>`:''}
-    ${pastDates.length?`<div style="margin-top:10px"><label style="margin:0">📖 過去の日から読み込む</label>
+    ${pastDates.length?`<div style="margin-top:10px"><label style="margin:0">📖 過去の日のメニューを読み込む</label>
       <div class="flex2"><select id="planLoad">${pastDates.slice(0,60).map(d=>`<option value="${d}">${fmtD(d)} (${D.workouts.filter(w=>w.date===d).length}種目)</option>`).join('')}</select>
       <button class="btn sm ghost" style="flex:0 0 auto;width:auto" onclick="loadPlanFromSelect()">読み込む</button></div></div>`:''}
-  </div>
-  <div class="card">
-    <h3 style="margin-top:0">今日のトレを記録</h3>
-    <label>種目</label>
-    <input id="wName" placeholder="種目名（例：スクワット）" list="exList" oninput="showPrev()">
-    <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
-    <div id="prevHint" class="hint"></div>
-    <div id="setRows"></div>
-    <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="addSetRow()">＋セットを足す</button>
-    <label style="margin-top:8px">メモ（フォーム・意識した点・効いた部位）</label>
-    <textarea id="wMemo" placeholder="例：ボトムで骨盤の後傾に注意／内転筋によく効いた／少し前傾で刺激入りやすい"></textarea>
-    <button class="btn" style="margin-top:10px" onclick="saveWorkout()">記録する</button>
-  </div>
-  <div class="card">
-    <h3 style="margin-top:0">📋 メニュー（テンプレ）</h3>
-    <div class="muted">今のBurnFitのメニューを引き継ぐ用。作っておくとワンタップで種目を呼べる（AI導入後は相談・提案も）</div>
-    <div class="muted">↓種目をタップすると入力欄にセット＆前回の記録が出る</div>
-    ${D.templates.map(tp=>`<div class="item"><div class="row" style="justify-content:space-between"><b>${esc(tp.name)}</b>
-      <button class="del" onclick="delItem('templates','${tp.id}')">削除</button></div>
-      <div class="row" style="margin-top:4px">${tp.exercises.map(e=>`<button class="chip" onclick="pickEx('${esc(e).replace(/'/g,'')}')">${esc(e)}</button>`).join('')||'<span class="muted">種目なし</span>'}</div></div>`).join('')}
-    <div class="flex2" style="margin-top:10px">
-      <input id="tpName" placeholder="テンプレ名（例：脚の日）">
-      <input id="tpEx" placeholder="種目をカンマ区切り">
-    </div>
-    <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="addTemplate()">＋テンプレ作成</button>
+    ${D.templates.length?`<div style="margin-top:10px"><label style="margin:0">📋 テンプレから追加（BurnFitメニュー引き継ぎ用）</label>
+      ${D.templates.map(tp=>`<div class="item"><div class="row" style="justify-content:space-between"><b>${esc(tp.name)}</b><button class="del" onclick="delItem('templates','${tp.id}')">削除</button></div>
+      <div class="row" style="margin-top:4px">${tp.exercises.map(e=>`<button class="chip" onclick="addPlanName('${esc(e).replace(/'/g,'')}')">＋${esc(e)}</button>`).join('')||'<span class="muted">種目なし</span>'}</div></div>`).join('')}</div>`:''}
+    <div class="flex2" style="margin-top:8px"><input id="tpName" placeholder="テンプレ名（例：脚の日）"><input id="tpEx" placeholder="種目をカンマ区切り"></div>
+    <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="addTemplate()">＋テンプレ作成</button>
   </div>
   <div class="card">
     <h3 style="margin-top:0">📥 BurnFitの記録を貼り付けて取り込み</h3>
-    <div class="muted">BurnFitの記録テキストをそのまま貼るだけ。日付・種目・セット（kg／回／分）を自動で読み取って追加します。#タグやURLは無視。</div>
-    <textarea id="bfText" placeholder="例）2026-07-14 トレーニング記録／ヒップアダクション／1セット: 30kg 19回 …" style="min-height:90px"></textarea>
+    <div class="muted">記録テキストを貼ると、日付・種目・セットを読み取って履歴に追加。#タグ・URLは無視。</div>
+    <textarea id="bfText" placeholder="例）2026-07-14 トレーニング記録／ヒップアダクション／1セット: 30kg 19回 …" style="min-height:80px"></textarea>
     <button class="btn ghost" style="margin-top:8px" onclick="importBurnfit()">取り込む</button>
   </div>
-  <h3>今日の記録</h3>
-  ${todayW.length?todayW.map(w=>wItem(w)).join(''):'<div class="muted">まだなし</div>'}
-  <h3>これまで</h3>
+  <h3>これまでの記録</h3>
   ${D.workouts.filter(x=>x.date!==t).slice(-15).reverse().map(w=>wItem(w)).join('')||'<div class="muted">—</div>'}`;
 }
-let _setRows=[{weight:'',reps:''}];
-function renderSetRows(){const el=document.getElementById('setRows');if(!el)return;
-  el.innerHTML=_setRows.map((s,i)=>`<div class="row" style="margin-top:8px;align-items:flex-end;gap:6px">
-    <div style="flex:1"><label style="margin:0 0 2px">重量kg（セット${i+1}）</label>
-      <div class="stp"><button type="button" onclick="stp(${i},'weight',-2.5)">−</button>
-      <input type="number" inputmode="decimal" value="${s.weight}" onchange="_setRows[${i}].weight=this.value">
-      <button type="button" onclick="stp(${i},'weight',2.5)">＋</button></div></div>
-    <div style="flex:1"><label style="margin:0 0 2px">回数</label>
-      <div class="stp"><button type="button" onclick="stp(${i},'reps',-1)">−</button>
-      <input type="number" inputmode="numeric" value="${s.reps}" onchange="_setRows[${i}].reps=this.value">
-      <button type="button" onclick="stp(${i},'reps',1)">＋</button></div></div>
-    <button class="del" style="flex:0 0 auto;padding-bottom:12px" onclick="_setRows.splice(${i},1);renderSetRows()">✕</button></div>`).join('');}
-function stp(i,f,d){const v=parseFloat(_setRows[i][f])||0;_setRows[i][f]=Math.max(0,Math.round((v+d)*10)/10);renderSetRows();}
-function addSetRow(){const last=_setRows[_setRows.length-1]||{weight:'',reps:''};_setRows.push({weight:last.weight,reps:last.reps});renderSetRows();}
-function showPrev(){const el=document.getElementById('prevHint');if(!el)return;
-  const name=(document.getElementById('wName').value||'').trim();if(!name){el.innerHTML='';return;}
-  const prev=[...D.workouts].reverse().find(w=>w.name===name);
-  if(!prev){el.innerHTML='はじめての種目だね';return;}
-  el.innerHTML=`前回 ${fmtD(prev.date)}：${prev.sets.map(s=>`${s.weight||'-'}kg×${s.reps||'-'}`).join(', ')||'記録なし'} `+
-    `<button class="btn sm ghost" style="margin-top:4px" onclick='copyPrev(${JSON.stringify(prev.sets)})'>前回をコピー</button>`;}
-function copyPrev(sets){_setRows=(sets&&sets.length?sets:[{weight:'',reps:''}]).map(s=>({weight:s.weight,reps:s.reps}));renderSetRows();}
-function pickEx(name){const el=document.getElementById('wName');if(el){el.value=name;showPrev();window.scrollTo(0,0);}}
-function saveWorkout(){const name=document.getElementById('wName').value.trim();if(!name){alert('種目名を入れてね');return;}
-  const sets=_setRows.filter(s=>s.weight||s.reps);
-  D.workouts.push({id:uid(),date:today(),name,sets,memo:document.getElementById('wMemo').value.trim()});
-  ensurePlan();const it=D.plan.items.find(x=>x.name===name&&!x.done);if(it)it.done=true;
-  _setRows=[{weight:'',reps:''}];save();render();}
-/* ---- 今日のメニュー（プラン）---- */
-function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[]};}
-function addPlan(){ensurePlan();const n=(document.getElementById('planEx').value||'').trim();if(!n)return;D.plan.items.push({id:uid(),name:n,done:false});save();render();}
-function addPlanName(n){ensurePlan();D.plan.items.push({id:uid(),name:n,done:false});save();render();}
+function exCard(x,i){
+  const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());
+  const tm=(window._itemTimes||{})[x.id];
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
+      <span><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>
+    ${prev?`<div style="background:#f3f1ec;border-radius:8px;padding:8px;margin-top:6px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
+      <button class="minibtn" style="margin-top:4px" onclick="copyPrevTo('${x.id}')">前回をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:4px">はじめての種目</div>'}
+    <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg</div>
+    <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
+      ${(x.sets||[]).map((s,j)=>`<tr>
+        <td>${j+1}</td>
+        <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'kg',-1)">−</button><input type="number" inputmode="decimal" value="${s.kg??''}" onchange="setField('${x.id}',${j},'kg',this.value)"><button onclick="setStep('${x.id}',${j},'kg',1)">＋</button></span></td>
+        <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'reps',-1)">−</button><input type="number" inputmode="numeric" value="${s.reps??''}" onchange="setField('${x.id}',${j},'reps',this.value)"><button onclick="setStep('${x.id}',${j},'reps',1)">＋</button></span></td>
+        <td style="text-align:center"><button class="ck ${s.done?'on':''}" onclick="setDone('${x.id}',${j})">✓</button></td></tr>`).join('')}
+    </table>
+    <div class="row" style="margin-top:6px"><button class="minibtn" onclick="setDel('${x.id}')">− セット削除</button><button class="minibtn" style="color:var(--accent)" onclick="setAdd('${x.id}')">＋ セット追加</button></div>
+    <input placeholder="メモ（フォーム・意識・効いた部位）" value="${esc(x.memo||'')}" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px">
+  </div>`;
+}
+/* ---- プラン（種目カード）データ ---- */
+function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:false,restSec:60};
+  if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=false;
+  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';});}
+function newItem(n){return {id:uid(),name:n,part:'',memo:'',sets:[{kg:'',reps:'',done:false}]};}
+function itemVol(x){return Math.round((x.sets||[]).reduce((a,s)=>a+((+s.kg||0)*(+s.reps||0)),0));}
+function planItem(id){ensurePlan();return D.plan.items.find(x=>x.id===id);}
+function addPlan(){const n=(document.getElementById('planEx').value||'').trim();if(!n)return;ensurePlan();D.plan.items.push(newItem(n));save();render();}
+function addPlanName(n){ensurePlan();D.plan.items.push(newItem(n));save();render();}
 function planMove(i,d){ensurePlan();const a=D.plan.items;const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render();}
 function planRemove(id){ensurePlan();D.plan.items=D.plan.items.filter(x=>x.id!==id);save();render();}
-function planRecord(name){pickEx(name);}
 function loadPlanFromSelect(){const d=document.getElementById('planLoad').value;if(d)loadPlanFromDateStr(d);}
-function loadPlanFromDateStr(ds){ensurePlan();const names=[];D.workouts.filter(w=>w.date===ds).forEach(w=>{if(!names.includes(w.name))names.push(w.name);});
-  if(!names.length)return;D.plan.items=names.map(n=>({id:uid(),name:n,done:false}));save();setSub('tre','筋トレ');}
+function loadPlanFromDateStr(ds){ensurePlan();const seen=[],items=[];
+  D.workouts.filter(w=>w.date===ds).forEach(w=>{if(!seen.includes(w.name)){seen.push(w.name);items.push(newItem(w.name));}});
+  if(!items.length)return;D.plan.items=items;save();setSub('tre','筋トレ');}
+/* ---- セット編集 ---- */
+function setField(id,j,f,v){const x=planItem(id);if(x&&x.sets[j]){x.sets[j][f]=(v===''?'':(+v));save();render();}}
+function setStep(id,j,f,d){const x=planItem(id);if(!x||!x.sets[j])return;const cur=+x.sets[j][f]||0;x.sets[j][f]=Math.max(0,Math.round((cur+d)*10)/10);save();render();}
+function setDone(id,j){const x=planItem(id);if(!x||!x.sets[j])return;const s=x.sets[j];s.done=!s.done;s.doneTs=s.done?Date.now():null;
+  if(s.done){if(!D.plan.startTs)D.plan.startTs=Date.now();if(D.plan.restOn)startRest(D.plan.restSec||60);}save();render();}
+function setAdd(id){const x=planItem(id);if(!x)return;const last=x.sets[x.sets.length-1]||{kg:'',reps:''};x.sets.push({kg:last.kg,reps:last.reps,done:false});save();render();}
+function setDel(id){const x=planItem(id);if(!x||!x.sets.length)return;x.sets.pop();save();render();}
+function itemMemo(id,v){const x=planItem(id);if(x){x.memo=v;save();}}
+function copyPrevTo(id){const x=planItem(id);if(!x)return;const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());if(!prev)return;
+  x.sets=(prev.sets.length?prev.sets:[{}]).map(s=>({kg:s.weight==null?'':s.weight,reps:s.reps==null?'':s.reps,done:false}));save();render();}
+/* ---- トレ実行/時間計測 ---- */
+function fmtMin(sec){sec=Math.round(sec||0);if(sec<60)return sec+'秒';const m=Math.floor(sec/60);if(m<60)return m+'分';return Math.floor(m/60)+'時間'+(m%60)+'分';}
+function computeItemTimes(){const p=D.plan;const map={};if(!p||!p.startTs)return map;
+  const arr=p.items.map(it=>{const ts=(it.sets||[]).filter(s=>s.done&&s.doneTs).map(s=>s.doneTs);return ts.length?{id:it.id,ts:Math.max(...ts)}:null;}).filter(Boolean).sort((a,b)=>a.ts-b.ts);
+  let prev=p.startTs;arr.forEach(o=>{map[o.id]=Math.max(0,(o.ts-prev)/1000);prev=o.ts;});return map;}
+function sessCtrl(){const p=D.plan;
+  if(!p.startTs)return `<button class="btn" onclick="sessStart()">▶ トレーニング開始（時間を計測）</button>`;
+  if(p.startTs&&!p.endTs)return `<div class="row" style="justify-content:space-between;align-items:center">
+    <span>⏱ 運動時間 <b id="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor((Date.now()-p.startTs)/1000))}</b></span>
+    <button class="btn warn sm" style="width:auto" onclick="sessEnd()">■ トレーニング完了</button></div>`;
+  return `<div class="row" style="justify-content:space-between;align-items:center">
+    <span>✅ 今日の合計 <b>${fmtMin((p.endTs-p.startTs)/1000)}</b></span>
+    <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>`;}
+function sessStart(){ensurePlan();D.plan.startTs=Date.now();D.plan.endTs=null;save();render();}
+function sessEnd(){ensurePlan();if(!D.plan.startTs)return;D.plan.endTs=Date.now();
+  const t=computeItemTimes();
+  D.plan.items.forEach(it=>{const sets=(it.sets||[]).filter(s=>(s.kg!==''&&s.kg!=null)||(s.reps!==''&&s.reps!=null))
+    .map(s=>({weight:(s.kg===''||s.kg==null)?null:+s.kg,reps:(s.reps===''||s.reps==null)?null:+s.reps}));
+    if(sets.length)D.workouts.push({id:uid(),date:today(),name:it.name,sets,memo:it.memo||''});});
+  D.sessions.push({id:uid(),date:today(),startTs:D.plan.startTs,endTs:D.plan.endTs,
+    totalSec:Math.round((D.plan.endTs-D.plan.startTs)/1000),
+    items:D.plan.items.filter(it=>(it.sets||[]).some(s=>s.done)).map(it=>({name:it.name,sec:Math.round(t[it.id]||0)}))});
+  clearInterval(window._restInt);save();render();}
+function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.items.forEach(it=>(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;}));clearInterval(window._restInt);save();render();}
+function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
+function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
+  const upd=()=>{const el=document.getElementById('restDisp');if(el)el.textContent='休憩 '+window._restLeft+'秒';};upd();
+  window._restInt=setInterval(()=>{window._restLeft--;const el=document.getElementById('restDisp');
+    if(window._restLeft<=0){clearInterval(window._restInt);if(el)el.textContent='休憩おわり💪';beep(660);}
+    else if(el)el.textContent='休憩 '+window._restLeft+'秒';},1000);}
+function startSessTick(){clearInterval(window._sessInt);window._sessInt=setInterval(()=>{
+  const el=document.getElementById('sessElapsed');const p=D.plan;
+  if(el&&p&&p.startTs&&!p.endTs)el.textContent=fmtT(Math.floor((Date.now()-p.startTs)/1000));
+  else clearInterval(window._sessInt);},1000);}
 /* ---- カレンダー ---- */
 let _calM=null;
 function vCal(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m:now.getMonth()};
@@ -332,8 +363,11 @@ function vCal(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m:now.
   <div id="calDay"></div>`;}
 function calNav(d){_calM.m+=d;if(_calM.m<0){_calM.m=11;_calM.y--;}if(_calM.m>11){_calM.m=0;_calM.y++;}render();}
 function calPick(ds){const ws=D.workouts.filter(w=>w.date===ds);const box=document.getElementById('calDay');if(!box)return;
+  const sess=(D.sessions||[]).filter(s=>s.date===ds);
+  const sessHtml=sess.length?`<div class="muted" style="margin:2px 0 6px">⏱ トレ合計 ${fmtMin(sess.reduce((a,s)=>a+(s.totalSec||0),0))}${sess[0].items&&sess[0].items.length?'（'+sess[0].items.map(it=>esc(it.name)+' '+fmtMin(it.sec)).join(' / ')+'）':''}</div>`:'';
   box.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><b>${fmtD(ds)}</b>
     ${ws.length?`<button class="btn sm ghost" style="width:auto" onclick="loadPlanFromDateStr('${ds}')">今日のメニューに読み込む</button>`:''}</div>
+    ${sessHtml}
     ${ws.length?ws.map(wItem).join(''):'<div class="muted">この日は記録なし</div>'}</div>`;}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
