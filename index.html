@@ -634,38 +634,66 @@ function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ
   <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span>${m.photoId?' 📷':''}</div></div>`;}
 async function delMeal(id){const m=D.meals.find(x=>x.id===id);if(m&&m.photoId)await imgDel(m.photoId);D.meals=D.meals.filter(x=>x.id!==id);save();render();}
 
+function supUnit(s){return s.unit||'粒';}
+function usualCount(supId){const s=D.supList.find(x=>x.id===supId);
+  const counts=D.supLogs.filter(l=>l.supId===supId&&l.taken&&l.count).map(l=>l.count);
+  if(counts.length){const f={};let best=counts[counts.length-1],bc=0;counts.forEach(c=>{f[c]=(f[c]||0)+1;if(f[c]>=bc){bc=f[c];best=c;}});return best;}
+  return (s&&s.count)||1;}
 function vSup(){
-  const t=today();
+  const t=today();const key=!!aiKey();
   return `
-  <div class="banner">タンパク質だけじゃ足りない、を管理する場所。常用サプリを登録→毎日チェック。量・タイミングの最適化アドバイスはAI導入後に。</div>
+  <div class="banner">常用サプリを登録→毎日ワンタップ。いつもの粒数を覚えて「これ？」で選ぶだけに。${key?'名称からAIが成分・目安量も調べます。':'成分のAI分析はコーチ開眼後に有効。'}</div>
   <div class="card">
     <h3 style="margin-top:0">💊 今日のチェック</h3>
-    <div class="muted">登録したサプリをタップで「飲んだ」記録（時刻つき）。もう一度タップで取り消し。</div>
-    ${D.supList.length?D.supList.map(s=>{const log=D.supLogs.find(l=>l.date===t&&l.supId===s.id&&l.taken);
-      return `<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
-        <input type="checkbox" ${log?'checked':''} onchange="toggleSup('${s.id}')">
-        <span style="${log?'color:var(--sub)':''};flex:1"><b>${esc(s.name)}</b> <span class="muted">${esc(s.dose)}${s.timing?' / '+esc(s.timing):''}</span></span>
-        ${log&&log.time?`<span class="pill ok">✓ ${log.time}</span>`:''}</label></div>`;}).join('')
+    ${D.supList.length?`<button class="btn" style="width:100%;margin-bottom:8px" onclick="logAllUsual()">＋ いつもの一式を記録（${today()===t?'今日':''}）</button>`:''}
+    ${D.supList.length?D.supList.map(s=>{const log=D.supLogs.find(l=>l.date===t&&l.supId===s.id&&l.taken);const uc=usualCount(s.id);
+      return `<div class="item"><div class="row" style="justify-content:space-between;align-items:center;margin:0">
+        <span style="flex:1"><b>${esc(s.name)}</b> <span class="muted">いつも ${uc}${supUnit(s)}${s.timing?' / '+esc(s.timing):''}</span></span>
+        ${log?`<span class="pill ok">✓ ${log.time||''} ${log.count?log.count+supUnit(s):''}</span> <button class="minibtn" onclick="logSup('${s.id}',${uc})">取消</button>`
+          :`<button class="btn sm" style="width:auto" onclick="logSup('${s.id}',${uc})">飲んだ（${uc}${supUnit(s)}）</button>`}
+      </div></div>`;}).join('')
       :'<div class="muted">まず下でサプリを登録してね</div>'}
   </div>
   <div class="card">
     <h3 style="margin-top:0">常用サプリを登録</h3>
     <input id="supName" placeholder="名前（例：ホエイプロテイン）">
-    <div class="flex2" style="margin-top:6px">
-      <input id="supDose" placeholder="量（例：30g）">
-      <input id="supTiming" placeholder="タイミング（例：トレ後）">
+    <div id="supAiBox" style="display:none;white-space:pre-wrap;background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)"></div>
+    <textarea id="supPaste" placeholder="任意：成分表やURLを貼るとAI分析の精度が上がる" style="min-height:44px;margin-top:6px"></textarea>
+    <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeSupp()">🔍 AIで成分・目安量を調べる${key?'':'（要・開眼）'}</button>
+    <div class="flex3" style="margin-top:8px">
+      <input id="supCount" type="number" inputmode="numeric" placeholder="粒数">
+      <input id="supUnit" value="粒" placeholder="単位">
+      <input id="supTiming" placeholder="タイミング">
     </div>
     <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="addSup()">＋登録</button>
-    ${D.supList.map(s=>`<div class="item"><b>${esc(s.name)}</b> <span class="muted">${esc(s.dose)} / ${esc(s.timing)}</span>
-      <button class="del" onclick="delItem('supList','${s.id}')">削除</button></div>`).join('')}
+    ${D.supList.map(s=>`<div class="item"><div class="row" style="justify-content:space-between"><span><b>${esc(s.name)}</b> <span class="muted">${s.count?s.count+supUnit(s):esc(s.dose||'')}${s.timing?' / '+esc(s.timing):''}</span></span>
+      <button class="del" onclick="delItem('supList','${s.id}')">削除</button></div>
+      ${s.info?`<div class="muted" style="font-size:11px;margin-top:4px;white-space:pre-wrap">${esc(s.info)}</div>`:''}</div>`).join('')}
   </div>`;
 }
 function addSup(){const name=document.getElementById('supName').value.trim();if(!name)return;
-  D.supList.push({id:uid(),name,dose:document.getElementById('supDose').value.trim(),timing:document.getElementById('supTiming').value.trim()});save();render();}
-function toggleSup(supId){const t=today();const now=new Date().toTimeString().slice(0,5);
+  const count=+document.getElementById('supCount').value||null;
+  D.supList.push({id:uid(),name,count,unit:(document.getElementById('supUnit').value||'粒').trim(),
+    timing:document.getElementById('supTiming').value.trim(),info:window._supInfo||''});
+  window._supInfo='';save();render();}
+function logSup(supId,count){const t=today();const now=new Date().toTimeString().slice(0,5);
   const i=D.supLogs.findIndex(l=>l.date===t&&l.supId===supId);
-  if(i>=0){D.supLogs[i].taken=!D.supLogs[i].taken;if(D.supLogs[i].taken)D.supLogs[i].time=now;}
-  else D.supLogs.push({id:uid(),date:t,supId,taken:true,time:now});save();render();}
+  if(i>=0){D.supLogs[i].taken=!D.supLogs[i].taken;if(D.supLogs[i].taken){D.supLogs[i].time=now;D.supLogs[i].count=count;}}
+  else D.supLogs.push({id:uid(),date:t,supId,taken:true,time:now,count});save();render();}
+function logAllUsual(){const t=today();const now=new Date().toTimeString().slice(0,5);
+  D.supList.forEach(s=>{const c=usualCount(s.id);const i=D.supLogs.findIndex(l=>l.date===t&&l.supId===s.id);
+    if(i>=0){D.supLogs[i].taken=true;D.supLogs[i].time=now;D.supLogs[i].count=c;}
+    else D.supLogs.push({id:uid(),date:t,supId:s.id,taken:true,time:now,count:c});});save();render();}
+async function analyzeSupp(){const name=(document.getElementById('supName').value||'').trim();
+  const extra=(document.getElementById('supPaste')?document.getElementById('supPaste').value:'').trim();
+  if(!name&&!extra){alert('名称か、成分表/URLを入れてね');return;}
+  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  const box=document.getElementById('supAiBox');if(box){box.style.display='block';box.textContent='🔍 調べています…';}
+  const prompt=`次のサプリメントについて日本語で簡潔に。\n名称/情報: ${name} ${extra}\n出力(この順で短く):\n1) 主成分\n2) 期待できる効果(1〜2行)\n3) 一般的な目安量(1回あたりの粒数やg)\n4) 注意点1行(あれば)\n※URLの中身は開けないので、名称から"一般的な情報"として。特定商品の断定は避け「一般に」と前置き。`;
+  try{const r=await aiCall([{role:'user',content:prompt}],{model:aiModelData(),max_tokens:400});
+    window._supInfo=r;if(box)box.textContent=r;
+    const m=r.match(/([0-9]+)\s*粒/);const cc=document.getElementById('supCount');if(m&&cc&&!cc.value)cc.value=m[1];
+  }catch(e){if(box)box.textContent='⚠️ '+e.message;}}
 
 /* ============ からだ（採寸 / 体調・周期 / グラフ）============ */
 const MFIELDS=[['waist','ウエスト'],['hip','ヒップ'],['thigh','太もも'],['arm','二の腕'],['bust','バスト'],['weight','体重kg']];
