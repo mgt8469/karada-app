@@ -58,8 +58,10 @@
   nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#131519;border-top:1px solid var(--line);
     display:flex;max-width:520px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
   nav button{flex:1;background:none;border:none;padding:10px 0 9px;font-size:10px;color:var(--sub);cursor:pointer;font-weight:600}
-  nav button .ic{display:block;font-size:21px;margin-bottom:3px}
+  nav button .ic{display:block;margin-bottom:3px}
   nav button.on{color:var(--accent)}
+  .nic{width:24px;height:24px;margin:0 auto;display:block}
+  .gearic{width:24px;height:24px;display:block}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
   .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
   .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
@@ -108,7 +110,7 @@
 <body>
 <header>
   <h1>カラダ<span>管理</span></h1>
-  <button class="gear" onclick="openSettings()">⚙️</button>
+  <button class="gear" onclick="openSettings()" aria-label="設定"><svg class="gearic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></button>
 </header>
 <div class="wrap" id="view"></div>
 
@@ -152,13 +154,21 @@ function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new I
     res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
 
 /* ============ ルーティング ============ */
-const TABS=[['今日','🏠'],['トレ','🏋️'],['食事','🍽️'],['からだ','📏'],['カレンダー','📅']];
+const TABS=[['今日','home'],['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar']];
+const ICONS={
+  home:'<path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 10.5V20h11v-9.5"/>',
+  dumbbell:'<path d="M4 9v6M7 6.5v11M17 6.5v11M20 9v6M7 12h10"/>',
+  meal:'<path d="M6 3v18M4 3v4.5a2 2 0 0 0 4 0V3"/><path d="M16 3v18"/><path d="M16 3c2 0 3 2.2 3 5.5S18 13 16 13"/>',
+  ruler:'<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7.5 8v3M11 8v4.5M14.5 8v3M18 8v4.5"/>',
+  calendar:'<rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9.5h16M9 3v4M15 3v4"/>'
+};
+function navIcon(n){return `<svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;}
 let tab='今日', sub={};
 function setTab(t){tab=t;render();window.scrollTo(0,0);}
 function setSub(k,v){sub[k]=v;render();}
 function render(){
   document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
-    `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${i}</span>${t}</button>`).join('');
+    `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${navIcon(i)}</span>${t}</button>`).join('');
   const v=document.getElementById('view');
   v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar}[tab])();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
@@ -246,6 +256,10 @@ function vKin(){
     <h3 style="margin-top:0">＋ 種目を追加</h3>
     <div class="flex2"><input id="planEx" placeholder="種目名（例：スクワット）" list="exList"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addPlan()">追加</button></div>
     ${recentEx.length?`<div class="row" style="margin-top:6px">${recentEx.map(n=>`<button class="chip" onclick="addPlanName('${esc(n).replace(/'/g,'')}')">＋${esc(n)}</button>`).join('')}</div>`:''}
+    <div class="row" style="margin-top:6px"><span class="muted" style="width:100%">重量なし（メモのみ）で追加：</span>
+      <button class="chip" onclick="addPlanNoWeight('ストレッチ')">＋ストレッチ</button>
+      <button class="chip" onclick="addPlanNoWeight('ヨガ')">＋ヨガ</button>
+      <button class="chip" onclick="addPlanNoWeight('有酸素')">＋有酸素</button></div>
     ${pastDates.length?`<div style="margin-top:10px"><label style="margin:0">📖 過去の日のメニューを読み込む</label>
       <div class="flex2"><select id="planLoad">${pastDates.slice(0,60).map(d=>`<option value="${d}">${fmtD(d)} (${D.workouts.filter(w=>w.date===d).length}種目)</option>`).join('')}</select>
       <button class="btn sm ghost" style="flex:0 0 auto;width:auto" onclick="loadPlanFromSelect()">読み込む</button></div></div>`:''}
@@ -267,10 +281,18 @@ function vKin(){
 function exCard(x,i){
   const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());
   const tm=(window._itemTimes||{})[x.id];
-  return `<div class="card">
-    <div class="row" style="justify-content:space-between;align-items:center">
+  const head=`<div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>
+      <span><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>
+    <div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accent)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
+  if(x.noWeight){
+    return `<div class="card">${head}
+    ${prev&&prev.memo?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}　📝 ${esc(prev.memo)}</div>`:''}
+    <textarea placeholder="メモ（内容・時間・感じたこと）" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(x.memo||'')}</textarea>
+    <button class="btn ${x.done?'':'ghost'}" style="margin-top:8px" onclick="itemDone('${x.id}')">${x.done?'✓ 完了':'完了にする'}</button>
+  </div>`;
+  }
+  return `<div class="card">${head}
     ${prev?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg</div>
@@ -288,8 +310,12 @@ function exCard(x,i){
 /* ---- プラン（種目カード）データ ---- */
 function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:false,restSec:60};
   if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=false;
-  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';});}
-function newItem(n){return {id:uid(),name:n,part:'',memo:'',sets:[{kg:'',reps:'',done:false}]};}
+  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;});}
+function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,sets:[{kg:'',reps:'',done:false}]};}
+function renameItem(id){const x=planItem(id);if(!x)return;const n=prompt('種目名',x.name);if(n&&n.trim()){x.name=n.trim();save();render();}}
+function toggleNoWeight(id){const x=planItem(id);if(!x)return;x.noWeight=!x.noWeight;save();render();}
+function itemDone(id){const x=planItem(id);if(!x)return;x.done=!x.done;x.doneTs=x.done?Date.now():null;if(x.done&&!D.plan.startTs)D.plan.startTs=Date.now();save();render();}
+function addPlanNoWeight(n){ensurePlan();const it=newItem(n);it.noWeight=true;D.plan.items.push(it);save();render();}
 function itemVol(x){return Math.round((x.sets||[]).reduce((a,s)=>a+((+s.kg||0)*(+s.reps||0)),0));}
 function planItem(id){ensurePlan();return D.plan.items.find(x=>x.id===id);}
 function addPlan(){const n=(document.getElementById('planEx').value||'').trim();if(!n)return;ensurePlan();D.plan.items.push(newItem(n));save();render();}
@@ -313,7 +339,10 @@ function copyPrevTo(id){const x=planItem(id);if(!x)return;const prev=[...D.worko
 /* ---- トレ実行/時間計測 ---- */
 function fmtMin(sec){sec=Math.round(sec||0);if(sec<60)return sec+'秒';const m=Math.floor(sec/60);if(m<60)return m+'分';return Math.floor(m/60)+'時間'+(m%60)+'分';}
 function computeItemTimes(){const p=D.plan;const map={};if(!p||!p.startTs)return map;
-  const arr=p.items.map(it=>{const ts=(it.sets||[]).filter(s=>s.done&&s.doneTs).map(s=>s.doneTs);return ts.length?{id:it.id,ts:Math.max(...ts)}:null;}).filter(Boolean).sort((a,b)=>a.ts-b.ts);
+  const arr=p.items.map(it=>{let ts=null;
+    if(it.noWeight){if(it.done&&it.doneTs)ts=it.doneTs;}
+    else{const a=(it.sets||[]).filter(s=>s.done&&s.doneTs).map(s=>s.doneTs);if(a.length)ts=Math.max(...a);}
+    return ts?{id:it.id,ts}:null;}).filter(Boolean).sort((a,b)=>a.ts-b.ts);
   let prev=p.startTs;arr.forEach(o=>{map[o.id]=Math.max(0,(o.ts-prev)/1000);prev=o.ts;});return map;}
 function sessCtrl(){const p=D.plan;
   if(!p.startTs)return `<button class="btn" onclick="sessStart()">▶ トレーニング開始（時間を計測）</button>`;
@@ -326,14 +355,16 @@ function sessCtrl(){const p=D.plan;
 function sessStart(){ensurePlan();D.plan.startTs=Date.now();D.plan.endTs=null;save();render();}
 function sessEnd(){ensurePlan();if(!D.plan.startTs)return;D.plan.endTs=Date.now();
   const t=computeItemTimes();
-  D.plan.items.forEach(it=>{const sets=(it.sets||[]).filter(s=>(s.kg!==''&&s.kg!=null)||(s.reps!==''&&s.reps!=null))
+  D.plan.items.forEach(it=>{
+    if(it.noWeight){if(it.done||it.memo)D.workouts.push({id:uid(),date:today(),name:it.name,sets:[],memo:it.memo||'',noWeight:true});return;}
+    const sets=(it.sets||[]).filter(s=>(s.kg!==''&&s.kg!=null)||(s.reps!==''&&s.reps!=null))
     .map(s=>({weight:(s.kg===''||s.kg==null)?null:+s.kg,reps:(s.reps===''||s.reps==null)?null:+s.reps}));
     if(sets.length)D.workouts.push({id:uid(),date:today(),name:it.name,sets,memo:it.memo||''});});
   D.sessions.push({id:uid(),date:today(),startTs:D.plan.startTs,endTs:D.plan.endTs,
     totalSec:Math.round((D.plan.endTs-D.plan.startTs)/1000),
-    items:D.plan.items.filter(it=>(it.sets||[]).some(s=>s.done)).map(it=>({name:it.name,sec:Math.round(t[it.id]||0)}))});
+    items:D.plan.items.filter(it=>it.noWeight?it.done:(it.sets||[]).some(s=>s.done)).map(it=>({name:it.name,sec:Math.round(t[it.id]||0)}))});
   clearInterval(window._restInt);save();render();}
-function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.items.forEach(it=>(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;}));clearInterval(window._restInt);save();render();}
+function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
 function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
 function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
   const upd=()=>{const el=document.getElementById('restDisp');if(el)el.textContent='休憩 '+window._restLeft+'秒';};upd();
