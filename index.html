@@ -260,6 +260,7 @@ function vKin(){
       <input type="checkbox" ${D.plan.restOn?'checked':''} onchange="toggleRest()"> 休憩タイマー：セット完了で
       <input type="number" style="width:52px;padding:4px" value="${D.plan.restSec||60}" onchange="D.plan.restSec=+this.value||60;save()">秒カウント
       <span class="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
+    ${items.some(it=>(it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done)))&&!it.collapsed)?`<button class="btn gray sm" style="width:100%;margin-top:8px" onclick="collapseCompleted()">▾ 完了した種目をまとめて畳む</button>`:''}
   </div>
   <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
   ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>'}
@@ -332,6 +333,7 @@ function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),ite
   D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;});}
 function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
 function toggleCollapse(id){const x=planItem(id);if(!x)return;x.collapsed=!x.collapsed;save();render();}
+function collapseCompleted(){ensurePlan();let n=0;D.plan.items.forEach(it=>{const done=it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done));if(done&&!it.collapsed){it.collapsed=true;n++;}});save();render();}
 function renameItem(id){const x=planItem(id);if(!x)return;const n=prompt('種目名',x.name);if(n&&n.trim()){x.name=n.trim();save();render();}}
 function toggleNoWeight(id){const x=planItem(id);if(!x)return;x.noWeight=!x.noWeight;save();render();}
 function itemDone(id){const x=planItem(id);if(!x)return;x.done=!x.done;x.doneTs=x.done?Date.now():null;if(x.done){if(!D.plan.startTs)sessStart();x.collapsed=true;}save();render();}
@@ -382,9 +384,10 @@ function sessCtrl(){const p=D.plan;
 function sessBar(){const p=D.plan;const pauseBtn=p.paused
     ?`<button class="btn sm" style="width:auto;padding:8px 14px" onclick="sessResume()">▶ 再開</button>`
     :`<button class="btn gray sm" style="width:auto;padding:8px 12px" onclick="sessPause()">⏸</button>`;
+  const skipBtn=p.restOn?`<button class="btn gray sm" style="width:auto;padding:8px 10px" onclick="skipRest()">⏭休憩</button>`:'';
   return `<span style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;color:var(--sub)">運動</span><b class="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor(elapsedSec()))}</b></span>
     <span class="restDisp" style="color:var(--accent2);font-weight:700;font-size:14px"></span>
-    <span style="margin-left:auto;display:flex;gap:8px">${pauseBtn}<button class="btn warn sm" style="width:auto;padding:8px 14px" onclick="sessEnd()">■完了</button></span>`;}
+    <span style="margin-left:auto;display:flex;gap:6px">${skipBtn}${pauseBtn}<button class="btn warn sm" style="width:auto;padding:8px 12px" onclick="sessEnd()">■完了</button></span>`;}
 function sessStart(){ensurePlan();const n=Date.now();D.plan.startTs=n;D.plan.segStart=n;D.plan.accum=0;D.plan.paused=false;D.plan.endTs=null;save();render();}
 function sessPause(){ensurePlan();const p=D.plan;if(p.startTs&&!p.endTs&&!p.paused){p.accum=(p.accum||0)+(Date.now()-p.segStart)/1000;p.paused=true;p.segStart=null;}save();render();}
 function sessResume(){ensurePlan();const p=D.plan;if(p.paused){p.paused=false;p.segStart=Date.now();}save();render();}
@@ -404,6 +407,7 @@ function sessEnd(){ensurePlan();if(!D.plan.startTs)return;const p=D.plan;
 function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.paused=false;D.plan.accum=0;D.plan.segStart=null;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;it.collapsed=false;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
 function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
 function setRestText(t){document.querySelectorAll('.restDisp').forEach(el=>el.textContent=t);}
+function skipRest(){clearInterval(window._restInt);window._restLeft=0;setRestText('');}
 function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
   setRestText('休憩 '+window._restLeft+'秒');
   window._restInt=setInterval(()=>{window._restLeft--;
