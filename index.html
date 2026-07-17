@@ -9,103 +9,100 @@
 <title>カラダ管理</title>
 <style>
   :root{
-    --bg:#f6f5f2; --card:#ffffff; --ink:#2b2b2b; --sub:#8a8a8a;
-    --line:#e7e4de; --accent:#2f9e83; --accent2:#e0a86b;
-    --warn:#c96a5a; --shadow:0 1px 3px rgba(0,0,0,.06);
+    --bg:#16181c; --card:#1f2329; --ink:#ffffff; --sub:#8a929c;
+    --line:#2b2f36; --accent:#c6f24e; --accent2:#ff8a3d;
+    --warn:#ff6b5a; --shadow:none;
     --r:14px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Helvetica Neue",sans-serif;
     background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;
-    padding-bottom:76px;-webkit-font-smoothing:antialiased}
+    padding-bottom:80px;-webkit-font-smoothing:antialiased}
   .wrap{max-width:520px;margin:0 auto;padding:0 14px}
-  header{position:sticky;top:0;z-index:20;background:rgba(246,245,242,.92);backdrop-filter:blur(8px);
-    padding:14px 14px 8px;display:flex;align-items:center;justify-content:space-between}
-  header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.02em}
+  header{position:sticky;top:0;z-index:20;background:rgba(22,24,28,.92);backdrop-filter:blur(8px);
+    padding:16px 14px 10px;display:flex;align-items:center;justify-content:space-between}
+  header h1{font-size:21px;margin:0;font-weight:800;letter-spacing:.01em}
   header h1 span{color:var(--accent)}
   .gear{background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);padding:4px}
-  h2{font-size:15px;margin:18px 0 8px;font-weight:700}
-  h3{font-size:13px;margin:14px 0 6px;color:var(--sub);font-weight:600}
+  h2{font-size:16px;margin:18px 0 8px;font-weight:800}
+  h3{font-size:13px;margin:14px 0 6px;color:var(--sub);font-weight:700}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+    padding:15px;margin-bottom:12px}
   .muted{color:var(--sub);font-size:13px}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   label{font-size:13px;color:var(--sub);display:block;margin:8px 0 3px}
-  input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;
-    font-size:15px;font-family:inherit;background:#fff;color:var(--ink)}
+  input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;
+    font-size:16px;font-family:inherit;background:#22262c;color:var(--ink)}
   textarea{resize:vertical;min-height:52px}
   input[type=checkbox]{width:auto}
-  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px 14px;
-    font-size:15px;font-weight:600;cursor:pointer;width:100%}
-  .btn.sm{width:auto;padding:8px 12px;font-size:13px}
-  .btn.ghost{background:#fff;color:var(--accent);border:1px solid var(--accent)}
-  .btn.gray{background:#efece7;color:var(--ink)}
-  .btn.warn{background:var(--warn)}
-  .chip{display:inline-block;padding:6px 11px;border-radius:999px;border:1px solid var(--line);
-    background:#fff;font-size:13px;cursor:pointer;margin:0 6px 6px 0;color:var(--ink)}
-  .chip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .chip.tag.on{background:var(--accent2);border-color:var(--accent2)}
-  .subtabs{display:flex;gap:6px;margin:6px 0 4px}
-  .subtabs button{flex:1;padding:9px;border:1px solid var(--line);background:#fff;border-radius:10px;
-    font-size:13px;font-weight:600;color:var(--sub);cursor:pointer}
-  .subtabs button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-  .item{border-bottom:1px solid var(--line);padding:9px 0;font-size:14px}
+  .btn{background:var(--accent);color:#16181c;border:none;border-radius:12px;padding:14px;
+    font-size:16px;font-weight:800;cursor:pointer;width:100%}
+  .btn.sm{width:auto;padding:9px 13px;font-size:14px;border-radius:10px}
+  .btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
+  .btn.gray{background:#2b2f36;color:var(--ink)}
+  .btn.warn{background:var(--warn);color:#16181c}
+  .chip{display:inline-block;padding:8px 13px;border-radius:999px;border:1px solid var(--line);
+    background:#22262c;font-size:14px;cursor:pointer;margin:0 6px 6px 0;color:var(--ink)}
+  .chip.on{background:var(--accent);color:#16181c;border-color:var(--accent);font-weight:700}
+  .chip.tag.on{background:var(--accent2);border-color:var(--accent2);color:#16181c}
+  .subtabs{display:flex;gap:6px;margin:6px 0 10px}
+  .subtabs button{flex:1;padding:11px;border:1px solid var(--line);background:#22262c;border-radius:10px;
+    font-size:14px;font-weight:700;color:var(--sub);cursor:pointer}
+  .subtabs button.on{background:var(--accent);color:#16181c;border-color:var(--accent)}
+  .item{border-bottom:1px solid var(--line);padding:10px 0;font-size:14px}
   .item:last-child{border-bottom:none}
   .item .d{font-size:12px;color:var(--sub)}
   .flex2{display:flex;gap:8px}.flex2>*{flex:1}
   .flex3{display:flex;gap:6px}.flex3>*{flex:1}
-  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#fff;border-top:1px solid var(--line);
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#131519;border-top:1px solid var(--line);
     display:flex;max-width:520px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
-  nav button{flex:1;background:none;border:none;padding:9px 0 8px;font-size:10px;color:var(--sub);cursor:pointer}
-  nav button .ic{display:block;font-size:20px;margin-bottom:2px}
+  nav button{flex:1;background:none;border:none;padding:10px 0 9px;font-size:10px;color:var(--sub);cursor:pointer;font-weight:600}
+  nav button .ic{display:block;font-size:21px;margin-bottom:3px}
   nav button.on{color:var(--accent)}
-  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;background:#efece7;color:var(--sub)}
-  .pill.hot{background:#fbe7e2;color:var(--warn)}
-  .pill.ok{background:#e3f1ec;color:var(--accent)}
-  .del{color:var(--warn);font-size:12px;background:none;border:none;cursor:pointer;padding:2px 4px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
+  .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
+  .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
+  .del{color:var(--warn);font-size:12px;background:none;border:none;cursor:pointer;padding:4px 6px}
   .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
   .gallery img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:pointer}
-  .banner{background:#e3f1ec;border:1px solid #cfe6dd;color:#2a6b58;font-size:12px;
-    padding:9px 11px;border-radius:10px;margin-bottom:10px}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none;
+  .banner{background:#22262c;border:1px solid var(--line);color:var(--sub);font-size:12px;
+    padding:10px 12px;border-radius:10px;margin-bottom:10px}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;display:none;
     align-items:center;justify-content:center;padding:16px}
   .overlay.on{display:flex}
   .overlay img{max-width:100%;max-height:80vh;border-radius:10px}
   .sheet{position:fixed;inset:0;background:var(--bg);z-index:40;overflow-y:auto;display:none}
   .sheet.on{display:block}
   .close{background:none;border:none;font-size:22px;color:var(--sub);cursor:pointer}
-  .kpi{display:flex;gap:8px}.kpi>div{flex:1;text-align:center;background:#fff;border:1px solid var(--line);
-    border-radius:10px;padding:8px 4px}
-  .kpi b{font-size:18px;display:block}.kpi span{font-size:11px;color:var(--sub)}
+  .kpi{display:flex;gap:8px}.kpi>div{flex:1;text-align:center;background:#22262c;border:1px solid var(--line);
+    border-radius:10px;padding:10px 4px}
+  .kpi b{font-size:20px;display:block;font-weight:800}.kpi span{font-size:11px;color:var(--sub)}
   svg{display:block;width:100%;height:auto}
   .hint{font-size:12px;color:var(--sub);margin-top:4px}
-  .stp{display:flex;align-items:center;gap:4px}
-  .stp button{min-width:38px;height:40px;padding:0 4px;border:1px solid var(--line);background:#fff;border-radius:8px;
-    font-size:15px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:700}
+  .stp{display:flex;align-items:center;gap:5px}
+  .stp button{min-width:42px;height:44px;padding:0 4px;border:1px solid var(--line);background:#22262c;border-radius:9px;
+    font-size:16px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:800}
   .stp input{text-align:center}
-  .timerBig{font-size:48px;font-weight:700;text-align:center;margin:12px 0;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .timerBig{font-size:48px;font-weight:800;text-align:center;margin:12px 0;font-variant-numeric:tabular-nums;letter-spacing:.02em}
   .timerBig.work{color:var(--accent)} .timerBig.rest{color:var(--accent2)}
-  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-top:10px}
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
   .calh{text-align:center;font-size:11px;color:var(--sub);padding:2px}
-  .calc{position:relative;aspect-ratio:1;border:1px solid var(--line);background:#fff;border-radius:8px;
-    font-size:13px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center}
-  .calc.has{border-color:var(--accent);color:var(--accent);font-weight:700}
-  .calc.tod{background:#eef7f3}
-  .calc .dot{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--accent)}
-  .planrow{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);padding:8px 0}
-  .planrow:last-child{border-bottom:none}
-  .planrow .nm{flex:1;font-size:14px}
-  .planrow.done .nm{color:var(--sub);text-decoration:line-through}
-  .minibtn{border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 8px;font-size:13px;cursor:pointer;color:var(--ink)}
-  .settbl{width:100%;border-collapse:collapse;margin-top:4px;font-size:13px}
-  .settbl td{padding:3px 2px}
+  .calc{position:relative;aspect-ratio:1;border:1px solid var(--line);background:#22262c;border-radius:9px;
+    font-size:14px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:600}
+  .calc.has{border-color:var(--accent);color:var(--accent);font-weight:800}
+  .calc.tod{background:rgba(198,242,78,.14)}
+  .calc .dot{position:absolute;bottom:5px;left:calc(50% - 5px);width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .calc .dot2{position:absolute;bottom:5px;left:calc(50% + 1px);width:6px;height:6px;border-radius:50%;background:var(--accent2)}
+  .minibtn{border:1px solid var(--line);background:#22262c;border-radius:9px;padding:9px 13px;font-size:14px;cursor:pointer;color:var(--ink);font-weight:600}
+  .settbl{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}
+  .settbl td{padding:5px 3px}
   .settbl tr.hd td{color:var(--sub);font-size:12px}
-  .miniset{display:flex;align-items:center;gap:3px}
-  .miniset button{width:26px;height:34px;border:1px solid var(--line);background:#fff;border-radius:6px;color:var(--accent);font-weight:700;cursor:pointer;flex:0 0 auto}
-  .miniset input{width:50px;text-align:center;padding:6px 2px}
-  .ck{width:38px;height:34px;border:1px solid var(--line);background:#fff;border-radius:7px;color:#cfcabf;cursor:pointer;font-weight:700}
-  .ck.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .miniset{display:flex;align-items:center;gap:4px}
+  .miniset button{width:32px;height:42px;border:1px solid var(--line);background:#22262c;border-radius:8px;color:var(--accent);font-weight:800;font-size:18px;cursor:pointer;flex:0 0 auto}
+  .miniset input{width:54px;text-align:center;padding:9px 2px;font-size:16px;font-weight:700}
+  .ck{width:46px;height:42px;border:1px solid var(--line);background:#22262c;border-radius:9px;color:#555b63;cursor:pointer;font-weight:800;font-size:16px}
+  .ck.on{background:var(--accent);color:#16181c;border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -155,7 +152,7 @@ function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new I
     res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
 
 /* ============ ルーティング ============ */
-const TABS=[['今日','🏠'],['トレ','🏋️'],['食事','🍽️'],['からだ','📏'],['写真','📷']];
+const TABS=[['今日','🏠'],['トレ','🏋️'],['食事','🍽️'],['からだ','📏'],['カレンダー','📅']];
 let tab='今日', sub={};
 function setTab(t){tab=t;render();window.scrollTo(0,0);}
 function setSub(k,v){sub[k]=v;render();}
@@ -163,8 +160,8 @@ function render(){
   document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
     `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${i}</span>${t}</button>`).join('');
   const v=document.getElementById('view');
-  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'写真':vPhoto}[tab])();
-  if(tab==='写真')loadGallery();
+  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar}[tab])();
+  if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
   startSessTick();
 }
@@ -220,9 +217,10 @@ function toggleSchedule(id){const s=D.schedule.find(x=>x.id===id);if(s){s.done=!
 function vTre(){
   const s=sub.tre||'筋トレ';
   return `<div class="subtabs">
-    ${['筋トレ','カレンダー','ラン','タイマー'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('tre','${x}')">${x}</button>`).join('')}
-    </div>${s==='筋トレ'?vKin():s==='カレンダー'?vCal():s==='ラン'?vRun():vTimer()}`;
+    ${['筋トレ','ラン'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('tre','${x}')">${x}</button>`).join('')}
+    </div>${s==='筋トレ'?vKin()+timerBlock():vRun()+timerBlock()}`;
 }
+function timerBlock(){return `<details style="margin-top:6px"><summary style="cursor:pointer;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);font-weight:700;list-style:none">⏱ タイマー（ストップウォッチ・インターバル）</summary>${vTimer()}</details>`;}
 function vKin(){
   const t=today();
   ensurePlan();
@@ -273,8 +271,8 @@ function exCard(x,i){
     <div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
       <span><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>
-    ${prev?`<div style="background:#f3f1ec;border-radius:8px;padding:8px;margin-top:6px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
-      <button class="minibtn" style="margin-top:4px" onclick="copyPrevTo('${x.id}')">前回をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:4px">はじめての種目</div>'}
+    ${prev?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
+      <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg</div>
     <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
       ${(x.sets||[]).map((s,j)=>`<tr>
@@ -348,27 +346,36 @@ function startSessTick(){clearInterval(window._sessInt);window._sessInt=setInter
   else clearInterval(window._sessInt);},1000);}
 /* ---- カレンダー ---- */
 let _calM=null;
-function vCal(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m:now.getMonth()};
+function vCalendar(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m:now.getMonth()};
   const {y,m}=_calM;const startDow=new Date(y,m,1).getDay();const days=new Date(y,m+1,0).getDate();
-  const wd=new Set(D.workouts.map(w=>w.date));
+  const wd=new Set(D.workouts.map(w=>w.date));const md=new Set(D.meals.map(x=>x.date));
   let cells='';for(let i=0;i<startDow;i++)cells+='<div></div>';
   for(let d=1;d<=days;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    cells+=`<button class="calc ${wd.has(ds)?'has':''} ${ds===today()?'tod':''}" onclick="calPick('${ds}')">${d}${wd.has(ds)?'<span class="dot"></span>':''}</button>`;}
-  return `<div class="banner">トレした日は緑の点つき。日をタップで内容表示＋「今日のメニューに読み込む」ができる。</div>
+    const hw=wd.has(ds),hm=md.has(ds);
+    cells+=`<button class="calc ${hw?'has':''} ${ds===today()?'tod':''}" onclick="calPick('${ds}')">${d}${hw?'<span class="dot"></span>':''}${hm?'<span class="dot2"></span>':''}</button>`;}
+  return `<h2 style="margin-top:14px">カレンダー</h2>
+  <div class="banner"><span style="color:var(--accent)">●</span> 運動　<span style="color:var(--accent2)">●</span> 食事　日をタップで運動・食事・体の記録をまとめて振り返り。</div>
   <div class="card">
     <div class="row" style="justify-content:space-between;align-items:center">
-      <button class="minibtn" onclick="calNav(-1)">‹ 前</button><b>${y}年${m+1}月</b><button class="minibtn" onclick="calNav(1)">次 ›</button></div>
+      <button class="minibtn" onclick="calNav(-1)">‹ 前</button><b style="font-size:16px">${y}年${m+1}月</b><button class="minibtn" onclick="calNav(1)">次 ›</button></div>
     <div class="calgrid">${['日','月','火','水','木','金','土'].map(w=>`<div class="calh">${w}</div>`).join('')}${cells}</div>
   </div>
   <div id="calDay"></div>`;}
 function calNav(d){_calM.m+=d;if(_calM.m<0){_calM.m=11;_calM.y--;}if(_calM.m>11){_calM.m=0;_calM.y++;}render();}
-function calPick(ds){const ws=D.workouts.filter(w=>w.date===ds);const box=document.getElementById('calDay');if(!box)return;
+function calPick(ds){const box=document.getElementById('calDay');if(!box)return;
+  const ws=D.workouts.filter(w=>w.date===ds);
+  const ms=D.meals.filter(x=>x.date===ds);
+  const cond=D.conditions.filter(c=>c.date===ds);
+  const meas=D.measures.filter(x=>x.date===ds);
   const sess=(D.sessions||[]).filter(s=>s.date===ds);
   const sessHtml=sess.length?`<div class="muted" style="margin:2px 0 6px">⏱ トレ合計 ${fmtMin(sess.reduce((a,s)=>a+(s.totalSec||0),0))}${sess[0].items&&sess[0].items.length?'（'+sess[0].items.map(it=>esc(it.name)+' '+fmtMin(it.sec)).join(' / ')+'）':''}</div>`:'';
-  box.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between;align-items:center"><b>${fmtD(ds)}</b>
-    ${ws.length?`<button class="btn sm ghost" style="width:auto" onclick="loadPlanFromDateStr('${ds}')">今日のメニューに読み込む</button>`:''}</div>
-    ${sessHtml}
-    ${ws.length?ws.map(wItem).join(''):'<div class="muted">この日は記録なし</div>'}</div>`;}
+  box.innerHTML=`<div class="card"><b style="font-size:16px">${fmtD(ds)}</b>
+    <h3>🏋️ 運動 ${ws.length?`<button class="btn sm ghost" style="width:auto;float:right" onclick="loadPlanFromDateStr('${ds}')">今日のメニューに読込</button>`:''}</h3>
+    ${sessHtml}${ws.length?ws.map(wItem).join(''):'<div class="muted">記録なし</div>'}
+    <h3>🍽️ 食事</h3>
+    ${ms.length?ms.map(mealItem).join(''):'<div class="muted">記録なし</div>'}
+    ${cond.length||meas.length?`<h3>📏 からだ</h3>${meas.map(x=>`<div class="muted">採寸 ${MFIELDS.filter(([k])=>x[k]!=null).map(([k,l])=>l+' '+x[k]).join(' / ')||'—'}</div>`).join('')}${cond.map(c=>`<div class="muted">${c.period?'🩸 ':''}${esc(c.mood||'')}${c.memo?' / '+esc(c.memo):''}</div>`).join('')}`:''}
+  </div>`;}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(w.name)}</b><span class="d">${fmtD(w.date)}<button class="del" onclick="delItem('workouts','${w.id}')">削除</button></span></div>
@@ -569,9 +576,9 @@ function toggleSup(supId){const t=today();const now=new Date().toTimeString().sl
 const MFIELDS=[['waist','ウエスト'],['hip','ヒップ'],['thigh','太もも'],['arm','二の腕'],['bust','バスト'],['weight','体重kg']];
 function vKarada(){
   const s=sub.kbody||'採寸';
-  return `<div class="subtabs">
-    ${['採寸','体調・周期','筋肉痛','グラフ'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('kbody','${x}')">${x}</button>`).join('')}
-    </div>${s==='採寸'?vMeasure():s==='体調・周期'?vCond():s==='筋肉痛'?vSore():vChart()}`;
+  return `<div class="subtabs" style="flex-wrap:wrap">
+    ${['採寸','体調・周期','筋肉痛','写真','グラフ'].map(x=>`<button class="${x===s?'on':''}" onclick="setSub('kbody','${x}')" style="flex:1 1 28%">${x}</button>`).join('')}
+    </div>${s==='採寸'?vMeasure():s==='体調・周期'?vCond():s==='筋肉痛'?vSore():s==='写真'?vPhoto():vChart()}`;
 }
 const SOREPARTS=['胸','背中','肩','二の腕','前腕','お尻','太もも前','太もも裏','内もも','ふくらはぎ','腹','首'];
 function vSore(){
