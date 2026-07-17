@@ -69,6 +69,10 @@
   body.hasbar{padding-bottom:132px}
   .kgin{width:100%;text-align:center;font-size:17px;font-weight:800;padding:11px 4px;height:auto}
   .cthumb{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;display:block;background:#22262c}
+  nav button{font-size:9.5px}
+  .cbub{max-width:88%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.65;word-break:break-word}
+  .cbub.user{align-self:flex-end;background:var(--accent);color:#16181c;font-weight:600;border-bottom-right-radius:4px}
+  .cbub.assistant{align-self:flex-start;background:#22262c;border:1px solid var(--line);border-bottom-left-radius:4px}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
   .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
   .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
@@ -133,14 +137,19 @@
 /* ============ データ層 ============ */
 const KEY='karada_v1';
 const DEFAULT={
-  profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:''},
+  profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:'', modelChat:'claude-sonnet-5', modelData:'claude-haiku-4-5-20251001'},
   templates:[], workouts:[], runs:[], meals:[],
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
-  photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン']
+  photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
+  aiChats:[]
 };
 let D=load();
-function load(){try{const r=JSON.parse(localStorage.getItem(KEY));return r?Object.assign(JSON.parse(JSON.stringify(DEFAULT)),r):JSON.parse(JSON.stringify(DEFAULT));}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
+function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
+  const d=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),r);
+  d.profile=Object.assign(JSON.parse(JSON.stringify(DEFAULT.profile)),r.profile||{});
+  if(!Array.isArray(d.aiChats))d.aiChats=[];
+  return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>new Date().toISOString().slice(0,10);
@@ -162,13 +171,14 @@ function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new I
     res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
 
 /* ============ ルーティング ============ */
-const TABS=[['今日','home'],['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar']];
+const TABS=[['今日','home'],['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar'],['コーチ','coach']];
 const ICONS={
   home:'<path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 10.5V20h11v-9.5"/>',
   dumbbell:'<path d="M4 9v6M7 6.5v11M17 6.5v11M20 9v6M7 12h10"/>',
   meal:'<path d="M6 3v18M4 3v4.5a2 2 0 0 0 4 0V3"/><path d="M16 3v18"/><path d="M16 3c2 0 3 2.2 3 5.5S18 13 16 13"/>',
   ruler:'<rect x="3" y="8" width="18" height="8" rx="1.5"/><path d="M7.5 8v3M11 8v4.5M14.5 8v3M18 8v4.5"/>',
-  calendar:'<rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9.5h16M9 3v4M15 3v4"/>'
+  calendar:'<rect x="4" y="5" width="16" height="16" rx="2.5"/><path d="M4 9.5h16M9 3v4M15 3v4"/>',
+  coach:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>'
 };
 function navIcon(n){return `<svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;}
 let tab='今日', sub={};
@@ -178,9 +188,10 @@ function render(){
   document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
     `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${navIcon(i)}</span>${t}</button>`).join('');
   const v=document.getElementById('view');
-  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar}[tab])();
+  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar,'コーチ':vCoach}[tab])();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
+  if(tab==='コーチ')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
   const sb=document.getElementById('sessbar');
   if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs&&tab==='トレ'&&(sub.tre||'筋トレ')==='筋トレ';
     if(active){sb.className='on';sb.innerHTML=sessBar();document.body.classList.add('hasbar');}else{sb.className='';sb.innerHTML='';document.body.classList.remove('hasbar');}}
@@ -816,11 +827,17 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="saveProfile()">保存</button>
     </div>
     <div class="card">
-      <h3 style="margin-top:0">🐉 AIコーチ（開眼はまだ）</h3>
-      <div class="muted">土台が固まったら、ここにClaude APIキーを入れて竜の目を入れる。記録を踏まえた相談・食事写真分析・解剖学ディスカッション・メニュー提案が有効に。今は準備中。</div>
-      <label style="margin-top:8px">APIキー（未使用・保存のみ）</label>
-      <input id="pfKey" type="password" value="${esc(D.profile.apiKey)}" placeholder="開眼のときに設定">
-      <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.profile.apiKey=document.getElementById('pfKey').value.trim();save();alert('保存しました（まだAIは動きません）')">キーを保存</button>
+      <h3 style="margin-top:0">🐉 AIコーチ（開眼）</h3>
+      <div class="muted">Claude APIキーを入れると「コーチ」タブで相談が使えるように。キーは端末内だけに保存し、Anthropicのapi以外には送りません。</div>
+      <label style="margin-top:8px">APIキー</label>
+      <input id="pfKey" type="password" value="${esc(D.profile.apiKey)}" placeholder="sk-ant-...">
+      <div class="flex2" style="margin-top:8px">
+        <div><label>相談用モデル</label><select id="pfModelChat">${modelOpts(aiModelChat())}</select></div>
+        <div><label>整理用モデル</label><select id="pfModelData">${modelOpts(aiModelData())}</select></div>
+      </div>
+      <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="saveAI()">保存</button>
+      <button class="btn sm gray" id="aiTestBtn" style="width:100%;margin-top:6px" onclick="aiTest()">接続テスト</button>
+      <div class="hint">支払いは前払いクレジット制。console.anthropic.com → Billingでクレジット購入＋月上限設定（auto-reloadはOFF推奨）→ API Keysで発行。目安：相談Sonnet≈¥2〜3/往復、整理Haiku≈¥1/往復。上限に達すると自動で止まるので使いすぎない。</div>
     </div>
     <div class="card">
       <h3 style="margin-top:0">💾 バックアップ</h3>
@@ -835,13 +852,82 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v1（土台）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v4（AI開眼）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function exportData(){const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='karada-backup-'+today()+'.json';a.click();}
 function importData(f){if(!f)return;const rd=new FileReader();rd.onload=()=>{try{D=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),JSON.parse(rd.result));save();alert('読み込みました');document.getElementById('settingsSheet').classList.remove('on');render();}catch(e){alert('読み込めませんでした');}};rd.readAsText(f);}
 
+/* ============ AIコーチ ============ */
+function aiKey(){return (D.profile.apiKey||'').trim();}
+function aiModelChat(){return D.profile.modelChat||'claude-sonnet-5';}
+function aiModelData(){return D.profile.modelData||'claude-haiku-4-5-20251001';}
+async function aiCall(messages,opts){opts=opts||{};
+  const key=aiKey();if(!key)throw new Error('APIキーが未設定です（設定→AIコーチ）');
+  const body={model:opts.model||aiModelChat(),max_tokens:opts.max_tokens||1024,messages};
+  if(opts.system)body.system=opts.system;
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify(body)});
+  if(!res.ok){let t='';try{t=await res.text();}catch(e){}let msg=String(res.status);
+    try{const j=JSON.parse(t);if(j.error&&j.error.message)msg=res.status+' '+j.error.message;}catch(e){if(t)msg=res.status+' '+t.slice(0,200);}
+    throw new Error('APIエラー: '+msg);}
+  const j=await res.json();
+  return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();}
+function aiContext(){const L=[];
+  const rw=D.workouts.slice(-12);if(rw.length)L.push('◾最近のトレ: '+rw.map(w=>`${w.date} ${w.name}[${(w.sets||[]).map(fmtSet).join(',')||w.memo||'-'}]`).join(' / '));
+  const rm=D.meals.slice(-10);if(rm.length)L.push('◾最近の食事: '+rm.map(m=>`${m.date}${m.type}:${m.memo}(${m.level})`).join(' / '));
+  const lm=D.measures.slice(-1)[0];if(lm)L.push('◾最新の採寸/体重: '+MFIELDS.filter(([k])=>lm[k]!=null).map(([k,l])=>l+lm[k]).join(' '));
+  const rc=D.conditions.slice(-5);if(rc.length)L.push('◾最近の体調/生理: '+rc.map(c=>`${c.date}${c.period?'🩸':''}${c.mood||''}${c.memo?'('+c.memo+')':''}`).join(' / '));
+  const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
+  const sp=D.supList.map(s=>s.name).join('・');if(sp)L.push('◾常用サプリ: '+sp);
+  return L.length?L.join('\n'):'（まだ記録が少ないです）';}
+function aiSystem(){const p=D.profile;
+  return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
+【目標(理想の体型)】${p.goal||'（未設定）'}
+${aiContext()}`;}
+async function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
+  if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
+  D.aiChats.push({role:'user',content:q});save();window._coachBusy=true;render();
+  try{let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-12).map(m=>({role:m.role,content:m.content}));
+    while(msgs.length&&msgs[0].role!=='user')msgs.shift();
+    const ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:1200});
+    D.aiChats.push({role:'assistant',content:ans});}
+  catch(e){D.aiChats.push({role:'assistant',content:'⚠️ '+e.message});}
+  window._coachBusy=false;save();render();}
+function clearCoach(){if(confirm('会話履歴を消す？')){D.aiChats=[];save();render();}}
+function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AIコーチを開眼させる</h3>
+  <div class="muted">まだAPIキーが未設定です。下の手順で開眼できます。</div>
+  <ol style="padding-left:18px;line-height:1.9;font-size:14px">
+   <li><b>console.anthropic.com</b> にログイン → Billingで前払いクレジット購入（$5〜）＋月上限を設定（例$5・auto-reloadはOFF）</li>
+   <li>API Keysでキーを発行</li>
+   <li>右上の⚙設定 → AIコーチ にキーを貼って保存</li>
+  </ol>
+  <button class="btn" style="margin-top:8px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
+function vCoach(){
+  if(!aiKey())return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>`+coachSetup();
+  const msgs=D.aiChats.map(m=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${esc(m.content).replace(/\n/g,'<br>')}</div>`).join('')
+    ||'<div class="muted" style="text-align:center;padding:24px 8px">目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」<br>「停滞してるので次の一手を」</div>';
+  return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>
+   <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
+   <div class="card">
+     <textarea id="coachInput" placeholder="相談を入力…" style="min-height:54px"></textarea>
+     <div class="row" style="justify-content:space-between;margin-top:6px">
+       <button class="minibtn" onclick="clearCoach()">履歴クリア</button>
+       <button class="btn sm" style="width:auto" onclick="sendCoach()">送信（${aiModelChat().includes('sonnet')?'Sonnet':'Haiku'}）</button>
+     </div>
+   </div>`;}
+function modelOpts(sel){const M=[['claude-sonnet-5','Sonnet（賢い・相談向き）'],['claude-haiku-4-5-20251001','Haiku（安い・整理向き）']];
+  return M.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
+function saveAI(){D.profile.apiKey=(document.getElementById('pfKey').value||'').trim();
+  D.profile.modelChat=document.getElementById('pfModelChat').value;
+  D.profile.modelData=document.getElementById('pfModelData').value;save();alert('保存しました');}
+async function aiTest(){const btn=document.getElementById('aiTestBtn');const old=btn?btn.textContent:'';if(btn)btn.textContent='テスト中…';
+  D.profile.apiKey=(document.getElementById('pfKey').value||'').trim();save();
+  try{const r=await aiCall([{role:'user',content:'接続テストです。「OK」とだけ返してください。'}],{model:aiModelData(),max_tokens:20});
+    alert('接続成功 ✅\n応答: '+r);}catch(e){alert('接続失敗 ❌\n'+e.message);}
+  if(btn)btn.textContent=old||'接続テスト';}
 /* ============ 起動 ============ */
 window._mood='';window._pkind='progress';window._soreParts=[];window._soreLv='';
 render();
