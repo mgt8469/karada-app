@@ -62,6 +62,13 @@
   nav button.on{color:var(--accent)}
   .nic{width:24px;height:24px;margin:0 auto;display:block}
   .gearic{width:24px;height:24px;display:block}
+  #sessbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 56px);z-index:29;
+    max-width:520px;margin:0 auto;background:#1b1e23;border-top:2px solid var(--accent);
+    box-shadow:0 -6px 18px rgba(0,0,0,.35);padding:9px 14px;display:none}
+  #sessbar.on{display:flex;align-items:center;gap:10px}
+  body.hasbar{padding-bottom:132px}
+  .kgin{width:100%;text-align:center;font-size:17px;font-weight:800;padding:11px 4px;height:auto}
+  .cthumb{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;display:block;background:#22262c}
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
   .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
   .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
@@ -114,6 +121,7 @@
 </header>
 <div class="wrap" id="view"></div>
 
+<div id="sessbar"></div>
 <nav id="nav"></nav>
 
 <!-- 設定シート -->
@@ -173,6 +181,9 @@ function render(){
   v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar}[tab])();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
+  const sb=document.getElementById('sessbar');
+  if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs&&tab==='トレ'&&(sub.tre||'筋トレ')==='筋トレ';
+    if(active){sb.className='on';sb.innerHTML=sessBar();document.body.classList.add('hasbar');}else{sb.className='';sb.innerHTML='';document.body.classList.remove('hasbar');}}
   startSessTick();
 }
 
@@ -248,7 +259,7 @@ function vKin(){
     ${running?`<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
       <input type="checkbox" ${D.plan.restOn?'checked':''} onchange="toggleRest()"> 休憩タイマー：セット完了で
       <input type="number" style="width:52px;padding:4px" value="${D.plan.restSec||60}" onchange="D.plan.restSec=+this.value||60;save()">秒カウント
-      <span id="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
+      <span class="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
   </div>
   <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
   ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>'}
@@ -281,25 +292,32 @@ function vKin(){
 function exCard(x,i){
   const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());
   const tm=(window._itemTimes||{})[x.id];
+  const dc=x.noWeight?(x.done?1:0):(x.sets||[]).filter(s=>s.done).length;
+  const tot=x.noWeight?1:(x.sets||[]).length;
+  const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
   const head=`<div class="row" style="justify-content:space-between;align-items:center">
-      <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>
-    <div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accent)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
+      <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
+      <span><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}">${x.collapsed?'▸':'▾'}</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>`;
+  if(x.collapsed){
+    return `<div class="card" style="padding:12px 15px">${head}
+    <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}</div></div>`;
+  }
+  const nwToggle=`<div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accent)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
   if(x.noWeight){
-    return `<div class="card">${head}
+    return `<div class="card">${head}${nwToggle}
     ${prev&&prev.memo?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}　📝 ${esc(prev.memo)}</div>`:''}
     <textarea placeholder="メモ（内容・時間・感じたこと）" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(x.memo||'')}</textarea>
     <button class="btn ${x.done?'':'ghost'}" style="margin-top:8px" onclick="itemDone('${x.id}')">${x.done?'✓ 完了':'完了にする'}</button>
   </div>`;
   }
-  return `<div class="card">${head}
+  return `<div class="card">${head}${nwToggle}
     ${prev?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg</div>
     <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
       ${(x.sets||[]).map((s,j)=>`<tr>
         <td>${j+1}</td>
-        <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'kg',-1)">−</button><input type="number" inputmode="decimal" value="${s.kg??''}" onchange="setField('${x.id}',${j},'kg',this.value)"><button onclick="setStep('${x.id}',${j},'kg',1)">＋</button></span></td>
+        <td><input class="kgin" type="number" inputmode="decimal" value="${s.kg??''}" placeholder="kg" onchange="setField('${x.id}',${j},'kg',this.value)"></td>
         <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'reps',-1)">−</button><input type="number" inputmode="numeric" value="${s.reps??''}" onchange="setField('${x.id}',${j},'reps',this.value)"><button onclick="setStep('${x.id}',${j},'reps',1)">＋</button></span></td>
         <td style="text-align:center"><button class="ck ${s.done?'on':''}" onclick="setDone('${x.id}',${j})">✓</button></td></tr>`).join('')}
     </table>
@@ -308,13 +326,15 @@ function exCard(x,i){
   </div>`;
 }
 /* ---- プラン（種目カード）データ ---- */
-function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:false,restSec:60};
+function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:false,restSec:60,paused:false,accum:0,segStart:null};
   if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=false;
-  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;});}
-function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,sets:[{kg:'',reps:'',done:false}]};}
+  if(D.plan.paused==null)D.plan.paused=false;if(D.plan.accum==null)D.plan.accum=0;if(D.plan.segStart==null)D.plan.segStart=D.plan.startTs||null;
+  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;});}
+function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
+function toggleCollapse(id){const x=planItem(id);if(!x)return;x.collapsed=!x.collapsed;save();render();}
 function renameItem(id){const x=planItem(id);if(!x)return;const n=prompt('種目名',x.name);if(n&&n.trim()){x.name=n.trim();save();render();}}
 function toggleNoWeight(id){const x=planItem(id);if(!x)return;x.noWeight=!x.noWeight;save();render();}
-function itemDone(id){const x=planItem(id);if(!x)return;x.done=!x.done;x.doneTs=x.done?Date.now():null;if(x.done&&!D.plan.startTs)D.plan.startTs=Date.now();save();render();}
+function itemDone(id){const x=planItem(id);if(!x)return;x.done=!x.done;x.doneTs=x.done?Date.now():null;if(x.done){if(!D.plan.startTs)sessStart();x.collapsed=true;}save();render();}
 function addPlanNoWeight(n){ensurePlan();const it=newItem(n);it.noWeight=true;D.plan.items.push(it);save();render();}
 function itemVol(x){return Math.round((x.sets||[]).reduce((a,s)=>a+((+s.kg||0)*(+s.reps||0)),0));}
 function planItem(id){ensurePlan();return D.plan.items.find(x=>x.id===id);}
@@ -330,7 +350,8 @@ function loadPlanFromDateStr(ds){ensurePlan();const seen=[],items=[];
 function setField(id,j,f,v){const x=planItem(id);if(x&&x.sets[j]){x.sets[j][f]=(v===''?'':(+v));save();render();}}
 function setStep(id,j,f,d){const x=planItem(id);if(!x||!x.sets[j])return;const cur=+x.sets[j][f]||0;x.sets[j][f]=Math.max(0,Math.round((cur+d)*10)/10);save();render();}
 function setDone(id,j){const x=planItem(id);if(!x||!x.sets[j])return;const s=x.sets[j];s.done=!s.done;s.doneTs=s.done?Date.now():null;
-  if(s.done){if(!D.plan.startTs)D.plan.startTs=Date.now();if(D.plan.restOn)startRest(D.plan.restSec||60);}save();render();}
+  if(s.done){if(!D.plan.startTs)sessStart();if(D.plan.restOn)startRest(D.plan.restSec||60);
+    if(x.sets.length&&x.sets.every(t=>t.done))x.collapsed=true;}save();render();}
 function setAdd(id){const x=planItem(id);if(!x)return;const last=x.sets[x.sets.length-1]||{kg:'',reps:''};x.sets.push({kg:last.kg,reps:last.reps,done:false});save();render();}
 function setDel(id){const x=planItem(id);if(!x||!x.sets.length)return;x.sets.pop();save();render();}
 function itemMemo(id,v){const x=planItem(id);if(x){x.memo=v;save();}}
@@ -344,16 +365,32 @@ function computeItemTimes(){const p=D.plan;const map={};if(!p||!p.startTs)return
     else{const a=(it.sets||[]).filter(s=>s.done&&s.doneTs).map(s=>s.doneTs);if(a.length)ts=Math.max(...a);}
     return ts?{id:it.id,ts}:null;}).filter(Boolean).sort((a,b)=>a.ts-b.ts);
   let prev=p.startTs;arr.forEach(o=>{map[o.id]=Math.max(0,(o.ts-prev)/1000);prev=o.ts;});return map;}
+function elapsedSec(){const p=D.plan;if(!p||!p.startTs)return 0;
+  const run=!p.endTs&&!p.paused&&p.segStart;return (p.accum||0)+(run?(Date.now()-p.segStart)/1000:0);}
 function sessCtrl(){const p=D.plan;
   if(!p.startTs)return `<button class="btn" onclick="sessStart()">▶ トレーニング開始（時間を計測）</button>`;
-  if(p.startTs&&!p.endTs)return `<div class="row" style="justify-content:space-between;align-items:center">
-    <span>⏱ 運動時間 <b id="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor((Date.now()-p.startTs)/1000))}</b></span>
-    <button class="btn warn sm" style="width:auto" onclick="sessEnd()">■ トレーニング完了</button></div>`;
+  if(p.startTs&&!p.endTs){
+    const pauseBtn=p.paused
+      ?`<button class="btn sm" style="width:auto" onclick="sessResume()">▶ 再開</button>`
+      :`<button class="btn gray sm" style="width:auto" onclick="sessPause()">⏸ 一時停止</button>`;
+    return `<div class="row" style="justify-content:space-between;align-items:center;gap:8px">
+    <span>⏱ 運動時間 <b class="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor(elapsedSec()))}</b>${p.paused?' <span style="color:var(--sub);font-size:12px">（停止中）</span>':''}</span>
+    <span style="display:flex;gap:8px">${pauseBtn}<button class="btn warn sm" style="width:auto" onclick="sessEnd()">■ 完了</button></span></div>`;}
   return `<div class="row" style="justify-content:space-between;align-items:center">
-    <span>✅ 今日の合計 <b>${fmtMin((p.endTs-p.startTs)/1000)}</b></span>
+    <span>✅ 今日の合計 <b>${fmtMin(p.accum||0)}</b></span>
     <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>`;}
-function sessStart(){ensurePlan();D.plan.startTs=Date.now();D.plan.endTs=null;save();render();}
-function sessEnd(){ensurePlan();if(!D.plan.startTs)return;D.plan.endTs=Date.now();
+function sessBar(){const p=D.plan;const pauseBtn=p.paused
+    ?`<button class="btn sm" style="width:auto;padding:8px 14px" onclick="sessResume()">▶ 再開</button>`
+    :`<button class="btn gray sm" style="width:auto;padding:8px 12px" onclick="sessPause()">⏸</button>`;
+  return `<span style="display:flex;align-items:center;gap:6px"><span style="font-size:13px;color:var(--sub)">運動</span><b class="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor(elapsedSec()))}</b></span>
+    <span class="restDisp" style="color:var(--accent2);font-weight:700;font-size:14px"></span>
+    <span style="margin-left:auto;display:flex;gap:8px">${pauseBtn}<button class="btn warn sm" style="width:auto;padding:8px 14px" onclick="sessEnd()">■完了</button></span>`;}
+function sessStart(){ensurePlan();const n=Date.now();D.plan.startTs=n;D.plan.segStart=n;D.plan.accum=0;D.plan.paused=false;D.plan.endTs=null;save();render();}
+function sessPause(){ensurePlan();const p=D.plan;if(p.startTs&&!p.endTs&&!p.paused){p.accum=(p.accum||0)+(Date.now()-p.segStart)/1000;p.paused=true;p.segStart=null;}save();render();}
+function sessResume(){ensurePlan();const p=D.plan;if(p.paused){p.paused=false;p.segStart=Date.now();}save();render();}
+function sessEnd(){ensurePlan();if(!D.plan.startTs)return;const p=D.plan;
+  if(!p.paused&&p.segStart)p.accum=(p.accum||0)+(Date.now()-p.segStart)/1000;
+  p.paused=false;p.segStart=null;D.plan.endTs=Date.now();
   const t=computeItemTimes();
   D.plan.items.forEach(it=>{
     if(it.noWeight){if(it.done||it.memo)D.workouts.push({id:uid(),date:today(),name:it.name,sets:[],memo:it.memo||'',noWeight:true});return;}
@@ -361,20 +398,21 @@ function sessEnd(){ensurePlan();if(!D.plan.startTs)return;D.plan.endTs=Date.now(
     .map(s=>({weight:(s.kg===''||s.kg==null)?null:+s.kg,reps:(s.reps===''||s.reps==null)?null:+s.reps}));
     if(sets.length)D.workouts.push({id:uid(),date:today(),name:it.name,sets,memo:it.memo||''});});
   D.sessions.push({id:uid(),date:today(),startTs:D.plan.startTs,endTs:D.plan.endTs,
-    totalSec:Math.round((D.plan.endTs-D.plan.startTs)/1000),
+    totalSec:Math.round(D.plan.accum||0),
     items:D.plan.items.filter(it=>it.noWeight?it.done:(it.sets||[]).some(s=>s.done)).map(it=>({name:it.name,sec:Math.round(t[it.id]||0)}))});
   clearInterval(window._restInt);save();render();}
-function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
+function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.paused=false;D.plan.accum=0;D.plan.segStart=null;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;it.collapsed=false;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
 function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
+function setRestText(t){document.querySelectorAll('.restDisp').forEach(el=>el.textContent=t);}
 function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
-  const upd=()=>{const el=document.getElementById('restDisp');if(el)el.textContent='休憩 '+window._restLeft+'秒';};upd();
-  window._restInt=setInterval(()=>{window._restLeft--;const el=document.getElementById('restDisp');
-    if(window._restLeft<=0){clearInterval(window._restInt);if(el)el.textContent='休憩おわり💪';beep(660);}
-    else if(el)el.textContent='休憩 '+window._restLeft+'秒';},1000);}
+  setRestText('休憩 '+window._restLeft+'秒');
+  window._restInt=setInterval(()=>{window._restLeft--;
+    if(window._restLeft<=0){clearInterval(window._restInt);setRestText('休憩おわり💪');beep(660);}
+    else setRestText('休憩 '+window._restLeft+'秒');},1000);}
 function startSessTick(){clearInterval(window._sessInt);window._sessInt=setInterval(()=>{
-  const el=document.getElementById('sessElapsed');const p=D.plan;
-  if(el&&p&&p.startTs&&!p.endTs)el.textContent=fmtT(Math.floor((Date.now()-p.startTs)/1000));
-  else clearInterval(window._sessInt);},1000);}
+  const els=document.querySelectorAll('.sessElapsed');const p=D.plan;
+  if(els.length&&p&&p.startTs&&!p.endTs&&!p.paused){const t=fmtT(Math.floor(elapsedSec()));els.forEach(el=>el.textContent=t);}
+  else if(!p||!p.startTs||p.endTs)clearInterval(window._sessInt);},1000);}
 /* ---- カレンダー ---- */
 let _calM=null;
 function vCalendar(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m:now.getMonth()};
@@ -404,9 +442,18 @@ function calPick(ds){const box=document.getElementById('calDay');if(!box)return;
     <h3>🏋️ 運動 ${ws.length?`<button class="btn sm ghost" style="width:auto;float:right" onclick="loadPlanFromDateStr('${ds}')">今日のメニューに読込</button>`:''}</h3>
     ${sessHtml}${ws.length?ws.map(wItem).join(''):'<div class="muted">記録なし</div>'}
     <h3>🍽️ 食事</h3>
-    ${ms.length?ms.map(mealItem).join(''):'<div class="muted">記録なし</div>'}
+    ${ms.length?ms.map(calMeal).join(''):'<div class="muted">記録なし</div>'}
     ${cond.length||meas.length?`<h3>📏 からだ</h3>${meas.map(x=>`<div class="muted">採寸 ${MFIELDS.filter(([k])=>x[k]!=null).map(([k,l])=>l+' '+x[k]).join(' / ')||'—'}</div>`).join('')}${cond.map(c=>`<div class="muted">${c.period?'🩸 ':''}${esc(c.mood||'')}${c.memo?' / '+esc(c.memo):''}</div>`).join('')}`:''}
-  </div>`;}
+  </div>`;
+  loadCalThumbs(box);}
+function calMeal(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
+  return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
+    <b>${esc(m.type)}</b><span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
+    <div style="margin-top:3px">${esc(m.memo)||'<span class="muted">（メモなし）</span>'}</div>
+    ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}</div>`;}
+async function loadCalThumbs(box){const ims=box.querySelectorAll('img.cthumb');if(!ims.length)return;
+  const all=await imgAll();const map={};all.forEach(o=>map[o.id]=o.dataUrl);
+  ims.forEach(im=>{const d=map[im.dataset.pid];if(d)im.src=d;else im.remove();});}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(w.name)}</b><span class="d">${fmtD(w.date)}<button class="del" onclick="delItem('workouts','${w.id}')">削除</button></span></div>
@@ -536,6 +583,8 @@ function vShoku(){
 }
 const LEVELS=['軽め','普通','しっかり','食べ過ぎ','チートデイ'];
 let _mealLevel='普通';
+function mealDefaultType(){const d=new Date();const h=d.getHours()+d.getMinutes()/60;
+  if(h<10.5)return '朝';if(h<14.5)return '昼';if(h<17.5)return '間食';return '夜';}
 function vMeal(){
   const t=today();const tm=D.meals.filter(x=>x.date===t);
   return `
@@ -543,7 +592,7 @@ function vMeal(){
   <div class="card">
     <h3 style="margin-top:0">食事を記録</h3>
     <div class="flex2">
-      <select id="mType"><option>朝</option><option>昼</option><option>夜</option><option>間食</option><option>お酒・外食</option></select>
+      <select id="mType">${['朝','昼','夜','間食','お酒・外食'].map(o=>`<option${o===mealDefaultType()?' selected':''}>${o}</option>`).join('')}</select>
       <input id="mDate" type="date" value="${today()}">
     </div>
     <label>食べたもの</label>
