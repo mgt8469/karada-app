@@ -142,13 +142,14 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[]
+  aiChats:[], photoNotes:[]
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
   const d=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),r);
   d.profile=Object.assign(JSON.parse(JSON.stringify(DEFAULT.profile)),r.profile||{});
   if(!Array.isArray(d.aiChats))d.aiChats=[];
+  if(!Array.isArray(d.photoNotes))d.photoNotes=[];
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -317,7 +318,7 @@ function exCard(x,i){
   const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
   const head=`<div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}">${x.collapsed?'▸':'▾'}</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>`;
+      <span><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="フォーム・効かせ方をAIに相談">🐉</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}">${x.collapsed?'▸':'▾'}</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>`;
   if(x.collapsed){
     return `<div class="card" style="padding:12px 15px">${head}
     <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}</div></div>`;
@@ -524,7 +525,12 @@ function vRun(){
   const runs=D.runs.slice().reverse();
   const tot=D.runs.reduce((a,r)=>a+(+r.km||0),0);
   return `
-  <div class="banner">走ったことなくても大丈夫。まずは距離と時間を記録するだけ。プランの提案はAI導入後にできるよ。</div>
+  <div class="banner">走ったことなくても大丈夫。まずは距離と時間を記録するだけ。下のAIボタンで初心者向けプランも出せるよ。</div>
+  <div class="card" style="border-color:var(--accent)">
+    <div class="row" style="justify-content:space-between;align-items:center"><b>🏃 AIにランプラン相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
+    <button class="btn sm" style="width:100%;margin-top:8px" onclick="askRunPlan()">初心者プランを提案してもらう</button>
+    <div class="muted" style="font-size:11px;margin-top:6px">最近のラン・体調・目標を踏まえて、距離/ペース/頻度を提案（コーチSonnet）。</div>
+  </div>
   <div class="card">
     <h3 style="margin-top:0">ランを記録</h3>
     <div class="flex3">
@@ -669,6 +675,7 @@ function vSup(){
   <div class="banner">常用サプリを登録→毎日ワンタップ。いつもの粒数を覚えて「これ？」で選ぶだけに。${key?'名称からAIが成分・目安量も調べます。':'成分のAI分析はコーチ開眼後に有効。'}</div>
   <div class="card">
     <h3 style="margin-top:0">💊 今日のチェック</h3>
+    ${D.supList.length?`<button class="btn sm gray" style="width:100%;margin-bottom:8px" onclick="askSupTiming()">🐉 飲み方・タイミングをAIに相談</button>`:''}
     ${D.supList.length?`<button class="btn" style="width:100%;margin-bottom:8px" onclick="logAllUsual()">＋ いつもの一式を記録（${today()===t?'今日':''}）</button>`:''}
     ${D.supList.length?D.supList.map(s=>{const log=D.supLogs.find(l=>l.date===t&&l.supId===s.id&&l.taken);const uc=usualCount(s.id);
       return `<div class="item"><div class="row" style="justify-content:space-between;align-items:center;margin:0">
@@ -846,8 +853,9 @@ function vPhoto(){
 }
 function toggleTag(t,el){el.classList.toggle('on');if(_selTags.includes(t))_selTags=_selTags.filter(x=>x!==t);else _selTags.push(t);}
 async function savePhoto(){const f=document.getElementById('pFile').files[0];if(!f){alert('写真を選んでね');return;}
-  const dataUrl=await fileToDataUrl(f);
-  await imgPut({id:uid(),kind:window._pkind||'progress',date:today(),dataUrl,tags:_selTags.slice(),note:document.getElementById('pNote').value.trim()});
+  const dataUrl=await fileToDataUrl(f);const kind=window._pkind||'progress';const note=document.getElementById('pNote').value.trim();
+  await imgPut({id:uid(),kind,date:today(),dataUrl,tags:_selTags.slice(),note});
+  if(kind==='progress'&&(_selTags.length||note)){D.photoNotes.push({date:today(),tags:_selTags.slice(),note});save();}
   _selTags=[];window._pkind='progress';render();}
 async function loadGallery(){const all=await imgAll();
   const g=all.filter(i=>i.kind==='goal').reverse(),p=all.filter(i=>i.kind==='progress').reverse();
@@ -929,11 +937,14 @@ async function aiCall(messages,opts){opts=opts||{};
   return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();}
 function aiContext(){const L=[];
   const rw=D.workouts.slice(-12);if(rw.length)L.push('◾最近のトレ: '+rw.map(w=>`${w.date} ${w.name}[${(w.sets||[]).map(fmtSet).join(',')||w.memo||'-'}]`).join(' / '));
+  const rr=(D.runs||[]).slice(-4);if(rr.length)L.push('◾最近のラン: '+rr.map(r=>`${r.date} ${r.km}km/${r.min}分${r.memo?'('+r.memo+')':''}`).join(' / '));
   const rm=D.meals.slice(-10);if(rm.length)L.push('◾最近の食事: '+rm.map(m=>`${m.date}${m.type}:${m.memo}(${m.level})`).join(' / '));
   const lm=D.measures.slice(-1)[0];if(lm)L.push('◾最新の採寸/体重: '+MFIELDS.filter(([k])=>lm[k]!=null).map(([k,l])=>l+lm[k]).join(' '));
+  const pn=(D.photoNotes||[]).slice(-4);if(pn.length)L.push('◾写真の変化メモ(画像は非送信): '+pn.map(p=>`${p.date} ${(p.tags||[]).join('・')}${p.note?' '+p.note:''}`).join(' / '));
   const rc=D.conditions.slice(-5);if(rc.length)L.push('◾最近の体調/生理: '+rc.map(c=>`${c.date}${c.period?'🩸':''}${c.mood||''}${c.memo?'('+c.memo+')':''}`).join(' / '));
   const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
-  const sp=D.supList.map(s=>s.name).join('・');if(sp)L.push('◾常用サプリ: '+sp);
+  const sc=(D.schedule||[]).slice(-6);if(sc.length)L.push('◾直近の予定: '+sc.map(s=>`${s.date} ${s.type||''}${s.title||''}${s.time?'@'+s.time:''}`).join(' / '));
+  const sp=D.supList.map(s=>s.name+(s.timing?`(${s.timing})`:'')).join('・');if(sp)L.push('◾常用サプリ: '+sp);
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
@@ -954,6 +965,10 @@ function coachAsk(q){if(!aiKey()){alert('先にコーチを開眼（設定でAPI
 function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
 function askDiagnoseMenu(){ensurePlan();const names=D.plan.items.map(x=>x.name).join('・')||'（まだ種目なし）';
   coachAsk('今トレ画面に入れている種目は「'+names+'」。目標に対して、部位バランス（押す/引く/脚）や総ボリュームは適切か診断して。足す/減らす/順番の提案も具体的に。');}
+function askForm(name){coachAsk('「'+name+'」について、狙う筋（起始・停止と主な作用）／効かせるコツ／よくある代償動作と直し方を、整形外科志望向けに解剖学的に簡潔に教えて。「うまく効いてない気がする時」にどこを意識すべきかも。');}
+function askRunPlan(){coachAsk('私はラン初心者。最近のランの記録・体調・目標を踏まえて、無理なく続く1〜2週間のランプランを提案して（距離・ペース・頻度、走れない日の代替、故障予防のフォーム一言も）。');}
+function askSupTiming(){const sup=D.supList.map(s=>s.name+(s.count?`(${s.count}${supUnit(s)})`:'')+(s.timing?`/${s.timing}`:'')).join('・')||'（未登録）';
+  coachAsk('私の常用サプリは「'+sup+'」。目標とトレ内容を踏まえて、各サプリを飲むタイミング・量・組み合わせ（一緒に摂ると良い/避ける）を最適化して。一般的な範囲で、医療的処方ではない前提で。');}
 function clearCoach(){if(confirm('会話履歴を消す？')){D.aiChats=[];save();render();}}
 function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AIコーチを開眼させる</h3>
   <div class="muted">まだAPIキーが未設定です。下の手順で開眼できます。</div>
