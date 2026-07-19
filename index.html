@@ -1022,7 +1022,10 @@ function aiContext(){const L=[];
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
-【メモ自動保存】ユーザーが「覚えておいて」等と頼んだ時や、今後の指導に効く恒久的な情報（既往・体の状態・勤務/生活・好み・目標の補足など）が会話に出たら、回答の最後に必ず「MEMO: <一文>」の行を付ける（複数可・簡潔に）。この行はアプリが自動でメモ欄に保存する。日常の相談では付けない。
+【メモの自動保存】アプリは回答末尾の専用行を解析して自動保存する（ユーザーのコピペ不要）。該当時だけ、回答の一番最後にまとめて付ける：
+・恒久的に覚えておくべき情報（既往・体の状態・勤務/生活・好み・目標の補足など）や「覚えておいて」と頼まれた時 → 「MEMO: <一文>」（複数可）
+・「◯◯（種目名）のメモに残して」等と頼まれた時 → 「NOTE[種目名]: <本文（改行可）>」。本文はその種目の記録メモ欄にそのまま保存される。手順や注意点を書く時はここに入れる（別途「コピーしておいて」とは言わない）。
+これらの行/ブロックは画面には表示されないので、本文中で必要な説明は別途書く。該当しない日常相談では付けない。
 【目標(理想の体型)】${p.goal||'（未設定）'}
 ${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${aiContext()}`;}
 async function runCoach(){window._coachBusy=true;render();
@@ -1034,9 +1037,17 @@ async function runCoach(){window._coachBusy=true;render();
       if(aiModelChat()!==aiModelData()){note='〔'+(aiModelChat().includes('sonnet')?'Sonnet':'選択モデル')+'が失敗（'+e1.message+'）→Haikuで回答〕\n\n';
         ans=await aiCall(msgs,{system:aiSystem(),model:aiModelData(),max_tokens:4000});}
       else throw e1;}
-    let saved=[];ans=ans.replace(/^\s*MEMO[:：]\s*(.+)$/gmi,(_,g)=>{const t=g.trim();if(t)saved.push(t);return '';}).replace(/\n{3,}/g,'\n\n').trim();
+    let saved=[],notes=[];
+    ans=ans.replace(/NOTE[\[［]([^\]］]+)[\]］][:：]\s*([\s\S]*?)(?=\n{2,}\s*NOTE[\[［]|\n{2,}\s*MEMO[:：]|\s*$)/gi,(m0,nm,body)=>{
+      const name=(nm||'').trim();const txt=(body||'').trim();if(!txt)return '';ensurePlan();
+      const it=(D.plan.items||[]).find(x=>x.name===name)||(D.plan.items||[]).find(x=>x.name.includes(name)||name.includes(x.name));
+      if(it){it.memo=txt;notes.push('「'+it.name+'」のメモ');}
+      else{D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+'【'+name+'】'+txt;notes.push(name+'（種目が無いので全体メモへ）');}
+      return '';}).trim();
+    ans=ans.replace(/^\s*MEMO[:：]\s*(.+)$/gmi,(_,g)=>{const t=g.trim();if(t)saved.push(t);return '';}).replace(/\n{3,}/g,'\n\n').trim();
     if(saved.length){D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+saved.map(s=>'・'+s).join('\n');}
-    const savedNote=saved.length?('\n\n📌 メモに自動保存: '+saved.join(' / ')):'';
+    const allSaved=notes.concat(saved.length?['覚えておくメモ']:[]);
+    const savedNote=allSaved.length?('\n\n📌 自動保存: '+allSaved.join(' / ')):'';
     const m=window._aiMeta||{};const dbg=`\n\n—— 🔧診断: ${(m.model||'').includes('sonnet')?'Sonnet':'Haiku'} / 停止:${m.stop} / 出力:${m.out}tok / blocks:${m.types}`;
     D.aiChats.push({role:'assistant',content:note+ans+savedNote+dbg});}
   catch(e){D.aiChats.push({role:'assistant',content:'⚠️ '+e.message});}
