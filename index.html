@@ -966,10 +966,11 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <div class="hint">支払いは前払いクレジット制。console.anthropic.com → Billingでクレジット購入＋月上限設定（auto-reloadはOFF推奨）→ API Keysで発行。目安：相談Sonnet≈¥2〜3/往復、整理Haiku≈¥1/往復。上限に達すると自動で止まるので使いすぎない。</div>
     </div>
     <div class="card">
-      <h3 style="margin-top:0">💾 バックアップ</h3>
-      <div class="muted">記録データをJSONで書き出し／読み込み。月1でiCloudに保存推奨。※写真は容量が大きいのでこのJSONには含まれません（端末内に保存）。</div>
-      <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="exportData()">データを書き出す</button>
-      <label style="margin-top:8px">読み込む（JSONを選択）</label>
+      <h3 style="margin-top:0">💾 バックアップ・共有</h3>
+      <div class="muted">🔒 <b>APIキーは書き出し・共有データに含まれません</b>。だから開発相談でそのまま貼ってもキーは漏れません（差し替え不要）。※写真もJSONには含まれません（端末内）。</div>
+      <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="copyShare()">🔗 共有用にコピー（キー除外・開発相談向け）</button>
+      <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="exportData()">💾 データを書き出す（バックアップ／キー除外）</button>
+      <label style="margin-top:8px">読み込む（JSONを選択）※現在のAPIキーは保持されます</label>
       <input type="file" accept="application/json" onchange="importData(this.files[0])">
     </div>
     <div class="card">
@@ -981,9 +982,18 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
     <div class="muted" style="text-align:center;padding:10px">カラダ管理 v4（AI開眼）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
-function exportData(){const blob=new Blob([JSON.stringify(D,null,2)],{type:'application/json'});
+function redactedData(){const c=JSON.parse(JSON.stringify(D));if(c.profile){c.profile.apiKey='';}return c;}
+function exportData(){const blob=new Blob([JSON.stringify(redactedData(),null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='karada-backup-'+today()+'.json';a.click();}
-function importData(f){if(!f)return;const rd=new FileReader();rd.onload=()=>{try{D=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),JSON.parse(rd.result));save();alert('読み込みました');document.getElementById('settingsSheet').classList.remove('on');render();}catch(e){alert('読み込めませんでした');}};rd.readAsText(f);}
+async function copyShare(){const txt=JSON.stringify(redactedData(),null,2);
+  try{await navigator.clipboard.writeText(txt);alert('コピーしました（APIキーは除外済み）。このまま貼り付けて共有OK');}
+  catch(e){const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();try{document.execCommand('copy');alert('コピーしました（APIキー除外済み）');}catch(e2){alert('コピーできませんでした。書き出しを使ってね');}document.body.removeChild(ta);}}
+function importData(f){if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const prevKey=(D.profile&&D.profile.apiKey)||'';const r=JSON.parse(rd.result);
+  D=Object.assign(JSON.parse(JSON.stringify(DEFAULT)),r);
+  D.profile=Object.assign(JSON.parse(JSON.stringify(DEFAULT.profile)),r.profile||{});
+  if(!D.profile.apiKey&&prevKey)D.profile.apiKey=prevKey;
+  ['aiChats','photoNotes','wishlist'].forEach(k=>{if(!Array.isArray(D[k]))D[k]=[];});if(typeof D.coachMemo!=='string')D.coachMemo='';
+  save();alert('読み込みました（現在のAPIキーは保持）');document.getElementById('settingsSheet').classList.remove('on');render();}catch(e){alert('読み込めませんでした');}};rd.readAsText(f);}
 
 /* ============ AIコーチ ============ */
 function aiKey(){return (D.profile.apiKey||'').trim();}
@@ -1022,10 +1032,13 @@ function aiContext(){const L=[];
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
-【メモの自動保存】アプリは回答末尾の専用行を解析して自動保存する（ユーザーのコピペ不要）。該当時だけ、回答の一番最後にまとめて付ける：
-・恒久的に覚えておくべき情報（既往・体の状態・勤務/生活・好み・目標の補足など）や「覚えておいて」と頼まれた時 → 「MEMO: <一文>」（複数可）
-・「◯◯（種目名）のメモに残して」等と頼まれた時 → 「NOTE[種目名]: <本文（改行可）>」。本文はその種目の記録メモ欄にそのまま保存される。手順や注意点を書く時はここに入れる（別途「コピーしておいて」とは言わない）。
-これらの行/ブロックは画面には表示されないので、本文中で必要な説明は別途書く。該当しない日常相談では付けない。
+【メモの自動保存＝最重要ルール】アプリが回答末尾の専用行を解析し、あなたの代わりに自動で書き込む。ユーザーは絶対にコピペしない。
+◆禁止：「コピーしておいてください」「メモ欄に貼り付けてください」「以下を控えて」等の"ユーザーに手作業させる案内"は一切しない。代わりに必ず下の専用行を出力する（それだけで保存される）。
+◆「◯◯（種目名）のメモに残して／書いといて」等と頼まれたら → 本文では「メモに書いておきますね」と一言だけ添え、回答の一番最後に必ず：
+NOTE[種目名]: 手順や注意点の本文（改行可）
+◆恒久情報や「覚えておいて」→ 回答の最後に MEMO: <一文>（複数可）
+◆これらの専用行は画面に表示されないので、本文側に重複して長々書かない。該当しない普通の相談では付けない。
+例）ユーザー「キックバックのやり方、メモに書いといて」→ 本文「フォームのメモを残しておきますね。」＋最後に「NOTE[キックバック]: 1)肘を固定し前腕を後方へ 2)収縮位で1秒 注意)反動を使わない」
 【目標(理想の体型)】${p.goal||'（未設定）'}
 ${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${aiContext()}`;}
 async function runCoach(){window._coachBusy=true;render();
