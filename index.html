@@ -9,8 +9,8 @@
 <title>カラダ管理</title>
 <style>
   :root{
-    --bg:#16181c; --card:#1f2329; --ink:#ffffff; --sub:#8a929c;
-    --line:#2b2f36; --accent:#c6f24e; --accent2:#ff8a3d;
+    --bg:#242931; --card:#2e343d; --ink:#eef1f5; --sub:#9aa2ad;
+    --line:#3a414b; --accent:#c6f24e; --accent2:#ff8a3d;
     --warn:#ff6b5a; --shadow:none;
     --r:14px;
   }
@@ -76,7 +76,8 @@
   .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
   .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
   .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
-  .del{color:var(--warn);font-size:12px;background:none;border:none;cursor:pointer;padding:4px 6px}
+  .del{color:var(--sub);font-size:11px;opacity:.6;background:none;border:none;cursor:pointer;padding:4px 6px}
+  .del:active{opacity:1;color:var(--warn)}
   .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
   .gallery img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:pointer}
   .banner{background:#22262c;border:1px solid var(--line);color:var(--sub);font-size:12px;
@@ -193,8 +194,9 @@ function render(){
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
   if(tab==='コーチ')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
+  if(tab==='食事')loadCalThumbs(document.getElementById('view'));
   const sb=document.getElementById('sessbar');
-  if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs&&tab==='トレ'&&(sub.tre||'筋トレ')==='筋トレ';
+  if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs;
     if(active){sb.className='on';sb.innerHTML=sessBar();document.body.classList.add('hasbar');}else{sb.className='';sb.innerHTML='';document.body.classList.remove('hasbar');}}
   startSessTick();
 }
@@ -259,7 +261,8 @@ function vKin(){
   ensurePlan();
   window._itemTimes=computeItemTimes();
   const items=D.plan.items;
-  const totalVol=items.reduce((a,x)=>a+itemVol(x),0);
+  const ended=!!D.plan.endTs;
+  const totalVol=items.reduce((a,x)=>a+(ended?itemVolDone(x):itemVol(x)),0);
   const pastDates=[...new Set(D.workouts.map(w=>w.date))].sort().reverse();
   const recentEx=[...new Set(D.workouts.slice().reverse().map(w=>w.name))].slice(0,8);
   const running=D.plan.startTs&&!D.plan.endTs;
@@ -318,7 +321,7 @@ function exCard(x,i){
   const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
   const head=`<div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="フォーム・効かせ方をAIに相談">🐉</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}">${x.collapsed?'▸':'▾'}</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button></span></div>`;
+      <span><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="フォーム・効かせ方をAIに相談">🐉</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>`;
   if(x.collapsed){
     return `<div class="card" style="padding:12px 15px">${head}
     <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}</div></div>`;
@@ -334,7 +337,7 @@ function exCard(x,i){
   return `<div class="card">${head}${nwToggle}
     ${prev?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
-    <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg</div>
+    <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg${weightDeltaHtml(x,prev)}</div>
     <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
       ${(x.sets||[]).map((s,j)=>`<tr>
         <td>${j+1}</td>
@@ -347,8 +350,8 @@ function exCard(x,i){
   </div>`;
 }
 /* ---- プラン（種目カード）データ ---- */
-function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:false,restSec:60,paused:false,accum:0,segStart:null};
-  if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=false;
+function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:true,restSec:60,paused:false,accum:0,segStart:null};
+  if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=true;
   if(D.plan.paused==null)D.plan.paused=false;if(D.plan.accum==null)D.plan.accum=0;if(D.plan.segStart==null)D.plan.segStart=D.plan.startTs||null;
   D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;});}
 function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
@@ -359,6 +362,12 @@ function toggleNoWeight(id){const x=planItem(id);if(!x)return;x.noWeight=!x.noWe
 function itemDone(id){const x=planItem(id);if(!x)return;x.done=!x.done;x.doneTs=x.done?Date.now():null;if(x.done){if(!D.plan.startTs)sessStart();x.collapsed=true;}save();render();}
 function addPlanNoWeight(n){ensurePlan();const it=newItem(n);it.noWeight=true;D.plan.items.push(it);save();render();}
 function itemVol(x){return Math.round((x.sets||[]).reduce((a,s)=>a+((+s.kg||0)*(+s.reps||0)),0));}
+function itemVolDone(x){return Math.round((x.sets||[]).filter(s=>s.done).reduce((a,s)=>a+((+s.kg||0)*(+s.reps||0)),0));}
+function weightDeltaHtml(x,prev){const c=Math.max(0,...(x.sets||[]).map(s=>+s.kg||0));const p=prev?Math.max(0,...(prev.sets||[]).map(s=>+s.weight||0)):0;
+  if(!prev||c<=0)return '';const d=Math.round((c-p)*10)/10;const col=d>0?'#4da3ff':d<0?'#ff6b5a':'var(--sub)';
+  return ` ・ <span style="color:${col};font-weight:800">最大${c}kg${d!==0?'（前回比'+(d>0?'+':'')+d+'kg）':'（前回と同じ）'}</span>`;}
+function askCooldown(){ensurePlan();const names=(D.plan.items||[]).filter(it=>it.noWeight?it.done:(it.sets||[]).some(s=>s.done)).map(it=>it.name).join('・')||'今日のトレ';
+  coachAsk('今日やった種目（'+names+'）に合う、最後のクールダウン/ストレッチを2〜3個提案して。各どの筋を狙うか・目的を解剖学的に簡潔に添えて。');}
 function planItem(id){ensurePlan();return D.plan.items.find(x=>x.id===id);}
 function addPlan(){const n=(document.getElementById('planEx').value||'').trim();if(!n)return;ensurePlan();D.plan.items.push(newItem(n));save();render();}
 function addPlanName(n){ensurePlan();D.plan.items.push(newItem(n));save();render();}
@@ -399,8 +408,9 @@ function sessCtrl(){const p=D.plan;
     <span>⏱ 運動時間 <b class="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:18px">${fmtT(Math.floor(elapsedSec()))}</b>${p.paused?' <span style="color:var(--sub);font-size:12px">（停止中）</span>':''}</span>
     <span style="display:flex;gap:8px">${pauseBtn}<button class="btn warn sm" style="width:auto" onclick="sessEnd()">■ 完了</button></span></div>`;}
   return `<div class="row" style="justify-content:space-between;align-items:center">
-    <span>✅ 今日の合計 <b>${fmtMin(p.accum||0)}</b></span>
-    <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>`;}
+    <span>✅ 今日の合計 <b>${fmtMin(p.accum||0)}</b>（実施分のみで再集計済み）</span>
+    <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>
+    <button class="btn sm" style="width:100%;margin-top:8px" onclick="askCooldown()">🐉 今日に合うストレッチを提案</button>`;}
 function sessBar(){const p=D.plan;const pauseBtn=p.paused
     ?`<button class="btn sm" style="width:auto;padding:8px 14px" onclick="sessResume()">▶ 再開</button>`
     :`<button class="btn gray sm" style="width:auto;padding:8px 12px" onclick="sessPause()">⏸</button>`;
@@ -431,7 +441,7 @@ function skipRest(){clearInterval(window._restInt);window._restLeft=0;setRestTex
 function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
   setRestText('休憩 '+window._restLeft+'秒');
   window._restInt=setInterval(()=>{window._restLeft--;
-    if(window._restLeft<=0){clearInterval(window._restInt);setRestText('休憩おわり💪');beep(660);}
+    if(window._restLeft<=0){clearInterval(window._restInt);setRestText('休憩おわり💪');beep(660);try{if(navigator.vibrate)navigator.vibrate([200,100,200]);}catch(e){}}
     else setRestText('休憩 '+window._restLeft+'秒');},1000);}
 function startSessTick(){clearInterval(window._sessInt);window._sessInt=setInterval(()=>{
   const els=document.querySelectorAll('.sessElapsed');const p=D.plan;
@@ -647,7 +657,8 @@ async function saveMeal(){const memo=document.getElementById('mMemo').value.trim
 function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
   return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(m.type)}</b><span class="d">${fmtD(m.date)}<button class="del" onclick="delMeal('${m.id}')">削除</button></span></div>
-  <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span>${m.photoId?' 📷':''}</div>
+  <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
+  ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
   ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
   ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:#22262c;border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
 async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);if(!m||!m.photoId){alert('写真がありません');return;}
@@ -927,14 +938,19 @@ async function aiCall(messages,opts){opts=opts||{};
   const key=aiKey();if(!key)throw new Error('APIキーが未設定です（設定→AIコーチ）');
   const body={model:opts.model||aiModelChat(),max_tokens:opts.max_tokens||1024,messages};
   if(opts.system)body.system=opts.system;
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+  const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),60000);let res;
+  try{res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
     headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-    body:JSON.stringify(body)});
+    body:JSON.stringify(body),signal:ctrl.signal});}
+  catch(e){clearTimeout(to);throw new Error(e&&e.name==='AbortError'?'タイムアウト（60秒無応答）。通信環境を確認して、もう一度送ってね':'通信エラー: '+((e&&e.message)||e));}
+  clearTimeout(to);
   if(!res.ok){let t='';try{t=await res.text();}catch(e){}let msg=String(res.status);
     try{const j=JSON.parse(t);if(j.error&&j.error.message)msg=res.status+' '+j.error.message;}catch(e){if(t)msg=res.status+' '+t.slice(0,200);}
     throw new Error('APIエラー: '+msg);}
   const j=await res.json();
-  return (j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();}
+  const txt=(j.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim();
+  if(!txt)throw new Error('応答が空でした（stop_reason='+(j.stop_reason||'?')+'）。モデルや上限を確認して再送してね');
+  return txt;}
 function aiContext(){const L=[];
   const rw=D.workouts.slice(-12);if(rw.length)L.push('◾最近のトレ: '+rw.map(w=>`${w.date} ${w.name}[${(w.sets||[]).map(fmtSet).join(',')||w.memo||'-'}]`).join(' / '));
   const rr=(D.runs||[]).slice(-4);if(rr.length)L.push('◾最近のラン: '+rr.map(r=>`${r.date} ${r.km}km/${r.min}分${r.memo?'('+r.memo+')':''}`).join(' / '));
