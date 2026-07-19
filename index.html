@@ -1021,10 +1021,15 @@ function aiSystem(){const p=D.profile;
 【目標(理想の体型)】${p.goal||'（未設定）'}
 ${aiContext()}`;}
 async function runCoach(){window._coachBusy=true;render();
-  try{let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-12).map(m=>({role:m.role,content:m.content}));
-    while(msgs.length&&msgs[0].role!=='user')msgs.shift();
-    const ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:1200});
-    D.aiChats.push({role:'assistant',content:ans});}
+  let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-12).map(m=>({role:m.role,content:m.content}));
+  while(msgs.length&&msgs[0].role!=='user')msgs.shift();
+  try{let ans,note='';
+    try{ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:1500});}
+    catch(e1){
+      if(aiModelChat()!==aiModelData()){note='〔'+(aiModelChat().includes('sonnet')?'Sonnet':'選択モデル')+'が失敗（'+e1.message+'）→Haikuで回答〕\n\n';
+        ans=await aiCall(msgs,{system:aiSystem(),model:aiModelData(),max_tokens:1500});}
+      else throw e1;}
+    D.aiChats.push({role:'assistant',content:note+ans});}
   catch(e){D.aiChats.push({role:'assistant',content:'⚠️ '+e.message});}
   window._coachBusy=false;save();render();}
 function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
