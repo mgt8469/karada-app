@@ -9,9 +9,10 @@
 <title>カラダ管理</title>
 <style>
   :root{
-    --bg:#242931; --card:#2e343d; --ink:#eef1f5; --sub:#9aa2ad;
-    --line:#3a414b; --accent:#c6f24e; --accent2:#ff8a3d;
-    --warn:#ff6b5a; --shadow:none;
+    --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
+    --line:#e2e7ec; --accent:#c6f24e; --accentD:#4f7a09; --accent2:#df6f0e;
+    --warn:#e5484d; --shadow:0 1px 3px rgba(20,30,50,.07);
+    --card2:#eef1f5; --chip:#e7ecf1; --navbg:#ffffff;
     --r:14px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -20,67 +21,67 @@
     background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;
     padding-bottom:80px;-webkit-font-smoothing:antialiased}
   .wrap{max-width:520px;margin:0 auto;padding:0 14px}
-  header{position:sticky;top:0;z-index:20;background:rgba(22,24,28,.92);backdrop-filter:blur(8px);
+  header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.9);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
     padding:16px 14px 10px;display:flex;align-items:center;justify-content:space-between}
   header h1{font-size:21px;margin:0;font-weight:800;letter-spacing:.01em}
-  header h1 span{color:var(--accent)}
+  header h1 span{color:var(--accentD)}
   .gear{background:none;border:none;font-size:22px;cursor:pointer;color:var(--sub);padding:4px}
   h2{font-size:16px;margin:18px 0 8px;font-weight:800}
   h3{font-size:13px;margin:14px 0 6px;color:var(--sub);font-weight:700}
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);
-    padding:15px;margin-bottom:12px}
+    padding:15px;margin-bottom:12px;box-shadow:var(--shadow)}
   .muted{color:var(--sub);font-size:13px}
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   label{font-size:13px;color:var(--sub);display:block;margin:8px 0 3px}
   input,select,textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;
-    font-size:16px;font-family:inherit;background:#22262c;color:var(--ink)}
+    font-size:16px;font-family:inherit;background:var(--card2);color:var(--ink)}
   textarea{resize:vertical;min-height:52px}
   input[type=checkbox]{width:auto}
   .btn{background:var(--accent);color:#16181c;border:none;border-radius:12px;padding:14px;
     font-size:16px;font-weight:800;cursor:pointer;width:100%}
   .btn.sm{width:auto;padding:9px 13px;font-size:14px;border-radius:10px}
-  .btn.ghost{background:transparent;color:var(--accent);border:1.5px solid var(--accent)}
-  .btn.gray{background:#2b2f36;color:var(--ink)}
+  .btn.ghost{background:transparent;color:var(--accentD);border:1.5px solid var(--accent)}
+  .btn.gray{background:var(--chip);color:var(--ink)}
   .btn.warn{background:var(--warn);color:#16181c}
   .chip{display:inline-block;padding:8px 13px;border-radius:999px;border:1px solid var(--line);
-    background:#22262c;font-size:14px;cursor:pointer;margin:0 6px 6px 0;color:var(--ink)}
-  .chip.on{background:var(--accent);color:#16181c;border-color:var(--accent);font-weight:700}
+    background:var(--card2);font-size:14px;cursor:pointer;margin:0 6px 6px 0;color:var(--ink)}
+  .chip.on{background:var(--accent);color:#16181c;border-color:var(--accentD);font-weight:700}
   .chip.tag.on{background:var(--accent2);border-color:var(--accent2);color:#16181c}
   .subtabs{display:flex;gap:6px;margin:6px 0 10px}
-  .subtabs button{flex:1;padding:11px;border:1px solid var(--line);background:#22262c;border-radius:10px;
+  .subtabs button{flex:1;padding:11px;border:1px solid var(--line);background:var(--card2);border-radius:10px;
     font-size:14px;font-weight:700;color:var(--sub);cursor:pointer}
-  .subtabs button.on{background:var(--accent);color:#16181c;border-color:var(--accent)}
+  .subtabs button.on{background:var(--accent);color:#16181c;border-color:var(--accentD)}
   .item{border-bottom:1px solid var(--line);padding:10px 0;font-size:14px}
   .item:last-child{border-bottom:none}
   .item .d{font-size:12px;color:var(--sub)}
   .flex2{display:flex;gap:8px}.flex2>*{flex:1}
   .flex3{display:flex;gap:6px}.flex3>*{flex:1}
-  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:#131519;border-top:1px solid var(--line);
+  nav{position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--navbg);border-top:1px solid var(--line);
     display:flex;max-width:520px;margin:0 auto;padding-bottom:env(safe-area-inset-bottom)}
   nav button{flex:1;background:none;border:none;padding:10px 0 9px;font-size:10px;color:var(--sub);cursor:pointer;font-weight:600}
   nav button .ic{display:block;margin-bottom:3px}
-  nav button.on{color:var(--accent)}
+  nav button.on{color:var(--accentD)}
   .nic{width:24px;height:24px;margin:0 auto;display:block}
   .gearic{width:24px;height:24px;display:block}
   #sessbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 56px);z-index:29;
-    max-width:520px;margin:0 auto;background:#1b1e23;border-top:2px solid var(--accent);
+    max-width:520px;margin:0 auto;background:var(--card);border-top:2px solid var(--accent);
     box-shadow:0 -6px 18px rgba(0,0,0,.35);padding:9px 14px;display:none}
   #sessbar.on{display:flex;align-items:center;gap:10px}
   body.hasbar{padding-bottom:132px}
   .kgin{width:100%;text-align:center;font-size:17px;font-weight:800;padding:11px 4px;height:auto}
-  .cthumb{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;display:block;background:#22262c}
+  .cthumb{width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;display:block;background:var(--card2)}
   nav button{font-size:9.5px}
   .cbub{max-width:88%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.65;word-break:break-word}
   .cbub.user{align-self:flex-end;background:var(--accent);color:#16181c;font-weight:600;border-bottom-right-radius:4px}
-  .cbub.assistant{align-self:flex-start;background:#22262c;border:1px solid var(--line);border-bottom-left-radius:4px}
-  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:#2b2f36;color:var(--sub);font-weight:700}
-  .pill.hot{background:rgba(255,107,90,.18);color:#ff9b8f}
-  .pill.ok{background:rgba(198,242,78,.16);color:var(--accent)}
+  .cbub.assistant{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:var(--chip);color:var(--sub);font-weight:700}
+  .pill.hot{background:rgba(229,72,77,.14);color:var(--warn)}
+  .pill.ok{background:rgba(198,242,78,.16);color:var(--accentD)}
   .del{color:var(--sub);font-size:11px;opacity:.6;background:none;border:none;cursor:pointer;padding:4px 6px}
   .del:active{opacity:1;color:var(--warn)}
   .gallery{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
   .gallery img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;cursor:pointer}
-  .banner{background:#22262c;border:1px solid var(--line);color:var(--sub);font-size:12px;
+  .banner{background:var(--card2);border:1px solid var(--line);color:var(--sub);font-size:12px;
     padding:10px 12px;border-radius:10px;margin-bottom:10px}
   .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:50;display:none;
     align-items:center;justify-content:center;padding:16px}
@@ -89,34 +90,34 @@
   .sheet{position:fixed;inset:0;background:var(--bg);z-index:40;overflow-y:auto;display:none}
   .sheet.on{display:block}
   .close{background:none;border:none;font-size:22px;color:var(--sub);cursor:pointer}
-  .kpi{display:flex;gap:8px}.kpi>div{flex:1;text-align:center;background:#22262c;border:1px solid var(--line);
+  .kpi{display:flex;gap:8px}.kpi>div{flex:1;text-align:center;background:var(--card2);border:1px solid var(--line);
     border-radius:10px;padding:10px 4px}
   .kpi b{font-size:20px;display:block;font-weight:800}.kpi span{font-size:11px;color:var(--sub)}
   svg{display:block;width:100%;height:auto}
   .hint{font-size:12px;color:var(--sub);margin-top:4px}
   .stp{display:flex;align-items:center;gap:5px}
-  .stp button{min-width:42px;height:44px;padding:0 4px;border:1px solid var(--line);background:#22262c;border-radius:9px;
-    font-size:16px;color:var(--accent);cursor:pointer;flex:0 0 auto;font-weight:800}
+  .stp button{min-width:42px;height:44px;padding:0 4px;border:1px solid var(--line);background:var(--card2);border-radius:9px;
+    font-size:16px;color:var(--accentD);cursor:pointer;flex:0 0 auto;font-weight:800}
   .stp input{text-align:center}
   .timerBig{font-size:48px;font-weight:800;text-align:center;margin:12px 0;font-variant-numeric:tabular-nums;letter-spacing:.02em}
-  .timerBig.work{color:var(--accent)} .timerBig.rest{color:var(--accent2)}
+  .timerBig.work{color:var(--accentD)} .timerBig.rest{color:var(--accent2)}
   .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
   .calh{text-align:center;font-size:11px;color:var(--sub);padding:2px}
-  .calc{position:relative;aspect-ratio:1;border:1px solid var(--line);background:#22262c;border-radius:9px;
+  .calc{position:relative;aspect-ratio:1;border:1px solid var(--line);background:var(--card2);border-radius:9px;
     font-size:14px;cursor:pointer;color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:600}
-  .calc.has{border-color:var(--accent);color:var(--accent);font-weight:800}
+  .calc.has{border-color:var(--accentD);color:var(--accentD);font-weight:800}
   .calc.tod{background:rgba(198,242,78,.14)}
   .calc .dot{position:absolute;bottom:5px;left:calc(50% - 5px);width:6px;height:6px;border-radius:50%;background:var(--accent)}
   .calc .dot2{position:absolute;bottom:5px;left:calc(50% + 1px);width:6px;height:6px;border-radius:50%;background:var(--accent2)}
-  .minibtn{border:1px solid var(--line);background:#22262c;border-radius:9px;padding:9px 13px;font-size:14px;cursor:pointer;color:var(--ink);font-weight:600}
+  .minibtn{border:1px solid var(--line);background:var(--card2);border-radius:9px;padding:9px 13px;font-size:14px;cursor:pointer;color:var(--ink);font-weight:600}
   .settbl{width:100%;border-collapse:collapse;margin-top:6px;font-size:14px}
   .settbl td{padding:5px 3px}
   .settbl tr.hd td{color:var(--sub);font-size:12px}
   .miniset{display:flex;align-items:center;gap:4px}
-  .miniset button{width:32px;height:42px;border:1px solid var(--line);background:#22262c;border-radius:8px;color:var(--accent);font-weight:800;font-size:18px;cursor:pointer;flex:0 0 auto}
+  .miniset button{width:32px;height:42px;border:1px solid var(--line);background:var(--card2);border-radius:8px;color:var(--accentD);font-weight:800;font-size:18px;cursor:pointer;flex:0 0 auto}
   .miniset input{width:54px;text-align:center;padding:9px 2px;font-size:16px;font-weight:700}
-  .ck{width:46px;height:42px;border:1px solid var(--line);background:#22262c;border-radius:9px;color:#555b63;cursor:pointer;font-weight:800;font-size:16px}
-  .ck.on{background:var(--accent);color:#16181c;border-color:var(--accent)}
+  .ck{width:46px;height:42px;border:1px solid var(--line);background:var(--card2);border-radius:9px;color:var(--sub);cursor:pointer;font-weight:800;font-size:16px}
+  .ck.on{background:var(--accent);color:#16181c;border-color:var(--accentD)}
 </style>
 </head>
 <body>
@@ -143,7 +144,7 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[]
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:''
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -152,6 +153,7 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!Array.isArray(d.aiChats))d.aiChats=[];
   if(!Array.isArray(d.photoNotes))d.photoNotes=[];
   if(!Array.isArray(d.wishlist))d.wishlist=[];
+  if(typeof d.coachMemo!=='string')d.coachMemo='';
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -278,7 +280,7 @@ function vKin(){
       <span class="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
     ${items.some(it=>(it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done)))&&!it.collapsed)?`<button class="btn gray sm" style="width:100%;margin-top:8px" onclick="collapseCompleted()">▾ 完了した種目をまとめて畳む</button>`:''}
   </div>
-  <div class="card" style="border-color:var(--accent)">
+  <div class="card" style="border-color:var(--accentD)">
     <div class="row" style="justify-content:space-between;align-items:center"><b>🐉 AIに筋トレ相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
     <div class="flex2" style="margin-top:8px">
       <button class="btn sm" onclick="askBuildMenu()">今日のメニュー組んで</button>
@@ -329,16 +331,16 @@ function exCard(x,i){
     return `<div class="card" style="padding:12px 15px">${head}
     <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}</div></div>`;
   }
-  const nwToggle=`<div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accent)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
+  const nwToggle=`<div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accentD)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
   if(x.noWeight){
     return `<div class="card">${head}${nwToggle}
-    ${prev&&prev.memo?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}　📝 ${esc(prev.memo)}</div>`:''}
+    ${prev&&prev.memo?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}　📝 ${esc(prev.memo)}</div>`:''}
     <textarea placeholder="メモ（内容・時間・感じたこと）" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(x.memo||'')}</textarea>
     <button class="btn ${x.done?'':'ghost'}" style="margin-top:8px" onclick="itemDone('${x.id}')">${x.done?'✓ 完了':'完了にする'}</button>
   </div>`;
   }
   return `<div class="card">${head}${nwToggle}
-    ${prev?`<div style="background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
+    ${prev?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg${weightDeltaHtml(x,prev)}</div>
     <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
@@ -348,7 +350,7 @@ function exCard(x,i){
         <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'reps',-1)">−</button><input type="number" inputmode="numeric" value="${s.reps??''}" onchange="setField('${x.id}',${j},'reps',this.value)"><button onclick="setStep('${x.id}',${j},'reps',1)">＋</button></span></td>
         <td style="text-align:center"><button class="ck ${s.done?'on':''}" onclick="setDone('${x.id}',${j})">✓</button></td></tr>`).join('')}
     </table>
-    <div class="row" style="margin-top:6px"><button class="minibtn" onclick="setDel('${x.id}')">− セット削除</button><button class="minibtn" style="color:var(--accent)" onclick="setAdd('${x.id}')">＋ セット追加</button></div>
+    <div class="row" style="margin-top:6px"><button class="minibtn" onclick="setDel('${x.id}')">− セット削除</button><button class="minibtn" style="color:var(--accentD)" onclick="setAdd('${x.id}')">＋ セット追加</button></div>
     <input placeholder="メモ（フォーム・意識・効いた部位）" value="${esc(x.memo||'')}" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px">
   </div>`;
 }
@@ -461,7 +463,7 @@ function vCalendar(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m
     const hw=wd.has(ds),hm=md.has(ds);
     cells+=`<button class="calc ${hw?'has':''} ${ds===today()?'tod':''}" onclick="calPick('${ds}')">${d}${hw?'<span class="dot"></span>':''}${hm?'<span class="dot2"></span>':''}</button>`;}
   return `<h2 style="margin-top:14px">カレンダー</h2>
-  <div class="banner"><span style="color:var(--accent)">●</span> 運動　<span style="color:var(--accent2)">●</span> 食事　日をタップで運動・食事・体の記録をまとめて振り返り。</div>
+  <div class="banner"><span style="color:var(--accentD)">●</span> 運動　<span style="color:var(--accent2)">●</span> 食事　日をタップで運動・食事・体の記録をまとめて振り返り。</div>
   <div class="card">
     <div class="row" style="justify-content:space-between;align-items:center">
       <button class="minibtn" onclick="calNav(-1)">‹ 前</button><b style="font-size:16px">${y}年${m+1}月</b><button class="minibtn" onclick="calNav(1)">次 ›</button></div>
@@ -490,12 +492,12 @@ function calMeal(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ�
     <div style="margin-top:3px">${esc(m.memo)||'<span class="muted">（メモなし）</span>'}</div>
     ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
     ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
-    ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:#1f2329;border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
+    ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
 async function loadCalThumbs(box){const ims=box.querySelectorAll('img.cthumb');if(!ims.length)return;
   const all=await imgAll();const map={};all.forEach(o=>map[o.id]=o.dataUrl);
   ims.forEach(im=>{const d=map[im.dataset.pid];if(d)im.src=d;else im.remove();});}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
-function setChips(sets){return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(sets||[]).map(s=>`<span style="background:#3a414b;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">${fmtSet(s)}</span>`).join('')||'<span class="muted">セットなし</span>'}</div>`;}
+function setChips(sets){return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(sets||[]).map(s=>`<span style="background:var(--chip);border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">${fmtSet(s)}</span>`).join('')||'<span class="muted">セットなし</span>'}</div>`;}
 function wVol(w){return Math.round((w.sets||[]).reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0));}
 function wBest(w){const a=(w.sets||[]).map(s=>+s.weight||0);const m=a.length?Math.max(...a):0;return m>0?m+'kg':'';}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
@@ -553,7 +555,7 @@ function vRun(){
   const tot=D.runs.reduce((a,r)=>a+(+r.km||0),0);
   return `
   <div class="banner">走ったことなくても大丈夫。まずは距離と時間を記録するだけ。下のAIボタンで初心者向けプランも出せるよ。</div>
-  <div class="card" style="border-color:var(--accent)">
+  <div class="card" style="border-color:var(--accentD)">
     <div class="row" style="justify-content:space-between;align-items:center"><b>🏃 AIにランプラン相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
     <button class="btn sm" style="width:100%;margin-top:8px" onclick="askRunPlan()">初心者プランを提案してもらう</button>
     <div class="muted" style="font-size:11px;margin-top:6px">最近のラン・体調・目標を踏まえて、距離/ペース/頻度を提案（コーチSonnet）。</div>
@@ -677,7 +679,7 @@ function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ
   <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
   ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
   ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
-  ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:#22262c;border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
+  ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
 async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);if(!m||!m.photoId){alert('写真がありません');return;}
   if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
   const imgs=await imgAll();const im=imgs.find(o=>o.id===m.photoId);
@@ -716,7 +718,7 @@ function vSup(){
   <div class="card">
     <h3 style="margin-top:0">常用サプリを登録</h3>
     <input id="supName" placeholder="名前（例：ホエイプロテイン）">
-    <div id="supAiBox" style="display:none;white-space:pre-wrap;background:#22262c;border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)"></div>
+    <div id="supAiBox" style="display:none;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)"></div>
     <textarea id="supPaste" placeholder="任意：成分表やURLを貼るとAI分析の精度が上がる" style="min-height:44px;margin-top:6px"></textarea>
     <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeSupp()">🔍 AIで成分・目安量を調べる${key?'':'（要・開眼）'}</button>
     <div class="flex3" style="margin-top:8px">
@@ -765,9 +767,9 @@ function vKarada(){
 const SOREPARTS=['胸','背中','肩','二の腕','前腕','お尻','太もも前','太もも裏','内もも','ふくらはぎ','腹','首'];
 function soreTap(p){window._soreParts=window._soreParts||[];const a=window._soreParts;const i=a.indexOf(p);if(i>=0)a.splice(i,1);else a.push(p);render();}
 function soreZone(p,x,y,w,h){const on=(window._soreParts||[]).includes(p);
-  return `<g onclick="soreTap('${p}')" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${on?'var(--accent)':'#454c57'}" stroke="${on?'var(--accent)':'#565e6a'}" stroke-width="1"/><text x="${x+w/2}" y="${y+h/2+2.6}" text-anchor="middle" font-size="6.6" font-weight="700" fill="${on?'#1a1d22':'#d6dbe1'}">${p}</text></g>`;}
+  return `<g onclick="soreTap('${p}')" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${on?'var(--accent)':'var(--chip)'}" stroke="${on?'var(--accent)':'var(--sub)'}" stroke-width="1"/><text x="${x+w/2}" y="${y+h/2+2.6}" text-anchor="middle" font-size="6.6" font-weight="700" fill="${on?'#1a1d22':'var(--ink)'}">${p}</text></g>`;}
 function bodyMap(){
-  const outline='fill:none;stroke:#565e6a;stroke-width:1.4';
+  const outline='fill:none;stroke:var(--sub);stroke-width:1.4';
   const front=`<svg viewBox="0 0 150 250" style="width:49%;max-width:180px">
     <text x="75" y="10" text-anchor="middle" font-size="8" fill="var(--sub)">前面</text>
     <circle cx="75" cy="24" r="10" style="${outline}"/>
@@ -797,7 +799,7 @@ function bodyMap(){
     ${soreZone('太もも裏',44,104,26,16)}${soreZone('太もも裏',80,104,26,16)}
     ${soreZone('ふくらはぎ',44,168,26,10)}${soreZone('ふくらはぎ',80,168,26,10)}
   </svg>`;
-  return `<div style="display:flex;gap:6px;justify-content:center;background:#2a2f37;border:1px solid var(--line);border-radius:12px;padding:8px 4px;margin-top:6px">${front}${back}</div>`;}
+  return `<div style="display:flex;gap:6px;justify-content:center;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 4px;margin-top:6px">${front}${back}</div>`;}
 function vSore(){
   return `
   <div class="banner">筋肉痛が出た部位をタップで記録（入力不要）。回復の把握や次のトレ計画の材料に。AI導入後は「回復したから次は脚」みたいな提案にも使える。</div>
@@ -886,9 +888,9 @@ function drawChart(){const box=document.getElementById('chartBox');if(!box)retur
   const X=i=>pad+i*(W-2*pad)/(pts.length-1);const Y=v=>H-pad-((v-mn)/rng)*(H-2*pad);
   const line=pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
   const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3" fill="#2f9e83"/>`).join('');
-  const labs=pts.map((p,i)=>(i%Math.ceil(pts.length/5)===0||i===pts.length-1)?`<text x="${X(i)}" y="${H-8}" font-size="10" fill="#8a8a8a" text-anchor="middle">${fmtD(p.x)}</text>`:'').join('');
+  const labs=pts.map((p,i)=>(i%Math.ceil(pts.length/5)===0||i===pts.length-1)?`<text x="${X(i)}" y="${H-8}" font-size="10" fill="var(--sub)" text-anchor="middle">${fmtD(p.x)}</text>`:'').join('');
   box.innerHTML=`<svg viewBox="0 0 ${W} ${H}">
-    <text x="4" y="14" font-size="11" fill="#8a8a8a">${mx}</text><text x="4" y="${H-pad}" font-size="11" fill="#8a8a8a">${mn}</text>
+    <text x="4" y="14" font-size="11" fill="var(--sub)">${mx}</text><text x="4" y="${H-pad}" font-size="11" fill="var(--sub)">${mn}</text>
     <path d="${line}" fill="none" stroke="#2f9e83" stroke-width="2"/>${dots}${labs}</svg>
     <div class="muted">最新 ${pts[pts.length-1].y}（${pts.length}件）</div>`;
 }
@@ -1021,9 +1023,9 @@ function aiContext(){const L=[];
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
 【目標(理想の体型)】${p.goal||'（未設定）'}
-${aiContext()}`;}
+${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${aiContext()}`;}
 async function runCoach(){window._coachBusy=true;render();
-  let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-12).map(m=>({role:m.role,content:m.content}));
+  let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-20).map(m=>({role:m.role,content:(m.content||'').split('—— 🔧診断')[0]}));
   while(msgs.length&&msgs[0].role!=='user')msgs.shift();
   try{let ans,note='';
     try{ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:4000});}
@@ -1058,7 +1060,7 @@ function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AI
   <button class="btn" style="margin-top:8px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
 function vCoach(){
   if(!aiKey())return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>`+coachSetup();
-  const msgs=D.aiChats.map(m=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${esc(m.content).replace(/\n/g,'<br>')}</div>`).join('')
+  const msgs=D.aiChats.map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${esc(m.content).replace(/\n/g,'<br>')}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
     ||'<div class="muted" style="text-align:center;padding:24px 8px">目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」<br>「停滞してるので次の一手を」</div>';
   return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>
    <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
@@ -1069,12 +1071,20 @@ function vCoach(){
        <button class="btn sm" style="width:auto" onclick="sendCoach()">送信（${aiModelChat().includes('sonnet')?'Sonnet':'Haiku'}）</button>
      </div>
    </div>
+   <details class="card" style="margin-top:8px"${D.coachMemo?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📌 コーチが常に覚えておくこと（毎回参照）</summary>
+     <div class="muted" style="font-size:12px;margin-top:6px">ここに書いた内容は毎回コーチに渡される（毎回コピペ不要）。例：「膝を痛めてるので高重量スクワットは避けたい」「水曜は夜勤で軽め」「増量期」。会話の吹き出しの「📌 覚えさせる」から追記もできる。</div>
+     <textarea id="coachMemo" placeholder="コーチに覚えておいてほしいことを書く" style="min-height:70px;margin-top:6px">${esc(D.coachMemo||'')}</textarea>
+     <button class="btn sm ghost" style="width:100%;margin-top:6px" onclick="saveCoachMemo()">保存</button>
+   </details>
    <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🔖 やりたいメモ（気になる種目・インスタ等のリンク）</summary>
      <div class="muted" style="font-size:12px;margin-top:6px">見つけた種目やリンクをメモしておくと、コーチが提案の時に取り入れてくれる。※AIはリンク先を開けないので、種目名や一言も添えると精度UP。</div>
      <div class="flex2" style="margin-top:8px"><input id="wishText" placeholder="例：ブルガリアンスクワット（IGで見た）"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addWish()">追加</button></div>
      ${(D.wishlist||[]).slice().reverse().map(w=>`<div class="item"><div class="row" style="justify-content:space-between"><span style="flex:1;word-break:break-all">${esc(w.text)}</span><button class="del" onclick="delWish('${w.id}')">削除</button></div></div>`).join('')||'<div class="muted" style="margin-top:6px">まだなし</div>'}
      ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">🐉 これらを取り入れて提案してもらう</button>`:''}
    </details>`;}
+function saveCoachMemo(){const el=document.getElementById('coachMemo');if(el){D.coachMemo=el.value;save();alert('保存しました（毎回コーチに渡されます）');}}
+function memoAdd(i){const m=D.aiChats[i];if(!m)return;let t=(m.content||'').split('—— 🔧診断')[0].replace(/^〔[^〕]*〕\s*/,'').trim();
+  if(!t)return;D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+'・'+t.slice(0,400);save();alert('コーチのメモに追加しました');render();}
 function addWish(){const t=(document.getElementById('wishText').value||'').trim();if(!t)return;D.wishlist.push({id:uid(),date:today(),text:t});save();render();}
 function delWish(id){D.wishlist=D.wishlist.filter(w=>w.id!==id);save();render();}
 function askWishlist(){const w=(D.wishlist||[]).map(x=>x.text).join(' / ')||'（なし）';
