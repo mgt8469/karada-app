@@ -273,6 +273,14 @@ function vKin(){
       <span class="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>`:''}
     ${items.some(it=>(it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done)))&&!it.collapsed)?`<button class="btn gray sm" style="width:100%;margin-top:8px" onclick="collapseCompleted()">▾ 完了した種目をまとめて畳む</button>`:''}
   </div>
+  <div class="card" style="border-color:var(--accent)">
+    <div class="row" style="justify-content:space-between;align-items:center"><b>🐉 AIに筋トレ相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
+    <div class="flex2" style="margin-top:8px">
+      <button class="btn sm" onclick="askBuildMenu()">今日のメニュー組んで</button>
+      <button class="btn sm gray" onclick="askDiagnoseMenu()">今の内容を診断</button>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:6px">目標・履歴・筋肉痛・体調を踏まえてコーチ（Sonnet）が回答。もっと細かい相談はコーチタブでどうぞ。</div>
+  </div>
   <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
   ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>'}
   <div class="card">
@@ -931,15 +939,21 @@ function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
 【目標(理想の体型)】${p.goal||'（未設定）'}
 ${aiContext()}`;}
-async function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
-  if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
-  D.aiChats.push({role:'user',content:q});save();window._coachBusy=true;render();
+async function runCoach(){window._coachBusy=true;render();
   try{let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-12).map(m=>({role:m.role,content:m.content}));
     while(msgs.length&&msgs[0].role!=='user')msgs.shift();
     const ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:1200});
     D.aiChats.push({role:'assistant',content:ans});}
   catch(e){D.aiChats.push({role:'assistant',content:'⚠️ '+e.message});}
   window._coachBusy=false;save();render();}
+function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
+  if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
+  D.aiChats.push({role:'user',content:q});if(inp)inp.value='';save();runCoach();}
+function coachAsk(q){if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  D.aiChats.push({role:'user',content:q});save();setTab('コーチ');runCoach();}
+function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
+function askDiagnoseMenu(){ensurePlan();const names=D.plan.items.map(x=>x.name).join('・')||'（まだ種目なし）';
+  coachAsk('今トレ画面に入れている種目は「'+names+'」。目標に対して、部位バランス（押す/引く/脚）や総ボリュームは適切か診断して。足す/減らす/順番の提案も具体的に。');}
 function clearCoach(){if(confirm('会話履歴を消す？')){D.aiChats=[];save();render();}}
 function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AIコーチを開眼させる</h3>
   <div class="muted">まだAPIキーが未設定です。下の手順で開眼できます。</div>
