@@ -143,7 +143,7 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[]
+  aiChats:[], photoNotes:[], wishlist:[]
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -151,6 +151,7 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   d.profile=Object.assign(JSON.parse(JSON.stringify(DEFAULT.profile)),r.profile||{});
   if(!Array.isArray(d.aiChats))d.aiChats=[];
   if(!Array.isArray(d.photoNotes))d.photoNotes=[];
+  if(!Array.isArray(d.wishlist))d.wishlist=[];
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -310,8 +311,8 @@ function vKin(){
     <textarea id="bfText" placeholder="例）2026-07-14 トレーニング記録／ヒップアダクション／1セット: 30kg 19回 …" style="min-height:80px"></textarea>
     <button class="btn ghost" style="margin-top:8px" onclick="importBurnfit()">取り込む</button>
   </div>
-  <h3>これまでの記録</h3>
-  ${D.workouts.filter(x=>x.date!==t).slice(-15).reverse().map(w=>wItem(w)).join('')||'<div class="muted">—</div>'}`;
+  <h3>これまでの記録（日付ごと）</h3>
+  ${workoutHistory(t)}`;
 }
 function exCard(x,i){
   const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());
@@ -319,9 +320,11 @@ function exCard(x,i){
   const dc=x.noWeight?(x.done?1:0):(x.sets||[]).filter(s=>s.done).length;
   const tot=x.noWeight?1:(x.sets||[]).length;
   const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
+  const menuOpen=(window._exMenu||{})[x.id];
   const head=`<div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="フォーム・効かせ方をAIに相談">🐉</button><button class="minibtn" onclick="renameItem('${x.id}')" title="名前を変更">✎</button><button class="minibtn" onclick="planMove(${i},-1)">↑</button><button class="minibtn" onclick="planMove(${i},1)">↓</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">✕</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>`;
+      <span style="display:flex;gap:2px"><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="AIにフォーム相談">🐉</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
+    ${menuOpen?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="minibtn" onclick="renameItem('${x.id}')">✎ 名前</button><button class="minibtn" onclick="planMove(${i},-1)">↑ 上へ</button><button class="minibtn" onclick="planMove(${i},1)">↓ 下へ</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">🗑 削除</button></div>`:''}`;
   if(x.collapsed){
     return `<div class="card" style="padding:12px 15px">${head}
     <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}</div></div>`;
@@ -356,6 +359,7 @@ function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),ite
   D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;});}
 function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
 function toggleCollapse(id){const x=planItem(id);if(!x)return;x.collapsed=!x.collapsed;save();render();}
+function toggleExMenu(id){window._exMenu=window._exMenu||{};window._exMenu[id]=!window._exMenu[id];render();}
 function collapseCompleted(){ensurePlan();let n=0;D.plan.items.forEach(it=>{const done=it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done));if(done&&!it.collapsed){it.collapsed=true;n++;}});save();render();}
 function renameItem(id){const x=planItem(id);if(!x)return;const n=prompt('種目名',x.name);if(n&&n.trim()){x.name=n.trim();save();render();}}
 function toggleNoWeight(id){const x=planItem(id);if(!x)return;x.noWeight=!x.noWeight;save();render();}
@@ -491,10 +495,23 @@ async function loadCalThumbs(box){const ims=box.querySelectorAll('img.cthumb');i
   const all=await imgAll();const map={};all.forEach(o=>map[o.id]=o.dataUrl);
   ims.forEach(im=>{const d=map[im.dataset.pid];if(d)im.src=d;else im.remove();});}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
+function setChips(sets){return `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">${(sets||[]).map(s=>`<span style="background:#3a414b;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600">${fmtSet(s)}</span>`).join('')||'<span class="muted">セットなし</span>'}</div>`;}
+function wVol(w){return Math.round((w.sets||[]).reduce((a,s)=>a+((+s.weight||0)*(+s.reps||0)),0));}
+function wBest(w){const a=(w.sets||[]).map(s=>+s.weight||0);const m=a.length?Math.max(...a):0;return m>0?m+'kg':'';}
 function wItem(w){return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(w.name)}</b><span class="d">${fmtD(w.date)}<button class="del" onclick="delItem('workouts','${w.id}')">削除</button></span></div>
-  <div class="muted">${w.sets.map(fmtSet).join(' , ')||'セットなし'}</div>
+  ${setChips(w.sets)}
   ${w.memo?`<div style="font-size:13px;margin-top:3px">📝 ${esc(w.memo)}</div>`:''}</div>`;}
+function workoutHistory(exclDate){const byDate={};D.workouts.filter(w=>w.date!==exclDate).forEach(w=>{(byDate[w.date]=byDate[w.date]||[]).push(w);});
+  const dates=Object.keys(byDate).sort().reverse().slice(0,20);if(!dates.length)return '<div class="muted">まだ記録なし</div>';
+  return dates.map(d=>{const ws=byDate[d];const vol=ws.reduce((a,w)=>a+wVol(w),0);
+    return `<div class="card" style="padding:12px 14px">
+      <div class="row" style="justify-content:space-between;align-items:center"><b style="font-size:15px">${fmtD(d)}</b><span class="pill ok">総 ${vol}kg・${ws.length}種目</span></div>
+      ${ws.map(w=>`<div style="margin-top:7px;border-top:1px solid var(--line);padding-top:7px">
+        <div class="row" style="justify-content:space-between"><b style="font-size:14px">${esc(w.name)}</b><span class="muted" style="font-size:12px">${wBest(w)?'最大 '+wBest(w):''}</span></div>
+        ${setChips(w.sets)}
+        ${w.memo?`<div style="font-size:12px;margin-top:3px;color:var(--sub)">📝 ${esc(w.memo)}</div>`:''}</div>`).join('')}
+    </div>`;}).join('');}
 function parseBurnfit(text){
   const dm=text.match(/(\d{4})[-\/年](\d{1,2})[-\/月](\d{1,2})/);
   const date=dm?`${dm[1]}-${String(dm[2]).padStart(2,'0')}-${String(dm[3]).padStart(2,'0')}`:today();
@@ -746,14 +763,50 @@ function vKarada(){
     </div>${s==='採寸'?vMeasure():s==='体調・周期'?vCond():s==='筋肉痛'?vSore():s==='写真'?vPhoto():vChart()}`;
 }
 const SOREPARTS=['胸','背中','肩','二の腕','前腕','お尻','太もも前','太もも裏','内もも','ふくらはぎ','腹','首'];
+function soreTap(p){window._soreParts=window._soreParts||[];const a=window._soreParts;const i=a.indexOf(p);if(i>=0)a.splice(i,1);else a.push(p);render();}
+function soreZone(p,x,y,w,h){const on=(window._soreParts||[]).includes(p);
+  return `<g onclick="soreTap('${p}')" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${on?'var(--accent)':'#454c57'}" stroke="${on?'var(--accent)':'#565e6a'}" stroke-width="1"/><text x="${x+w/2}" y="${y+h/2+2.6}" text-anchor="middle" font-size="6.6" font-weight="700" fill="${on?'#1a1d22':'#d6dbe1'}">${p}</text></g>`;}
+function bodyMap(){
+  const outline='fill:none;stroke:#565e6a;stroke-width:1.4';
+  const front=`<svg viewBox="0 0 150 250" style="width:49%;max-width:180px">
+    <text x="75" y="10" text-anchor="middle" font-size="8" fill="var(--sub)">前面</text>
+    <circle cx="75" cy="24" r="10" style="${outline}"/>
+    <path d="M55 45 Q75 40 95 45 L100 120 Q75 128 50 120 Z" style="${outline}"/>
+    <path d="M55 46 L34 60 L28 110 M95 46 L116 60 L122 110" style="${outline}"/>
+    <path d="M52 120 L48 200 M98 120 L102 200" style="${outline}"/>
+    ${soreZone('首',61,37,28,8)}
+    ${soreZone('肩',31,50,26,9)}${soreZone('肩',93,50,26,9)}
+    ${soreZone('胸',52,61,46,12)}
+    ${soreZone('二の腕',22,66,22,9)}${soreZone('二の腕',106,66,22,9)}
+    ${soreZone('腹',55,75,40,20)}
+    ${soreZone('前腕',18,90,22,9)}${soreZone('前腕',110,90,22,9)}
+    ${soreZone('太もも前',44,104,26,16)}${soreZone('太もも前',80,104,26,16)}
+    ${soreZone('内もも',62,124,26,9)}
+    ${soreZone('ふくらはぎ',44,168,26,10)}${soreZone('ふくらはぎ',80,168,26,10)}
+  </svg>`;
+  const back=`<svg viewBox="0 0 150 250" style="width:49%;max-width:180px">
+    <text x="75" y="10" text-anchor="middle" font-size="8" fill="var(--sub)">背面</text>
+    <circle cx="75" cy="24" r="10" style="${outline}"/>
+    <path d="M55 45 Q75 40 95 45 L100 120 Q75 128 50 120 Z" style="${outline}"/>
+    <path d="M55 46 L34 60 L28 110 M95 46 L116 60 L122 110" style="${outline}"/>
+    <path d="M52 120 L48 200 M98 120 L102 200" style="${outline}"/>
+    ${soreZone('肩',31,50,26,9)}${soreZone('肩',93,50,26,9)}
+    ${soreZone('背中',52,61,46,20)}
+    ${soreZone('二の腕',22,66,22,9)}${soreZone('二の腕',106,66,22,9)}
+    ${soreZone('お尻',55,84,40,14)}
+    ${soreZone('太もも裏',44,104,26,16)}${soreZone('太もも裏',80,104,26,16)}
+    ${soreZone('ふくらはぎ',44,168,26,10)}${soreZone('ふくらはぎ',80,168,26,10)}
+  </svg>`;
+  return `<div style="display:flex;gap:6px;justify-content:center;background:#2a2f37;border:1px solid var(--line);border-radius:12px;padding:8px 4px;margin-top:6px">${front}${back}</div>`;}
 function vSore(){
   return `
   <div class="banner">筋肉痛が出た部位をタップで記録（入力不要）。回復の把握や次のトレ計画の材料に。AI導入後は「回復したから次は脚」みたいな提案にも使える。</div>
   <div class="card">
     <h3 style="margin-top:0">筋肉痛を記録</h3>
     <label>日付</label><input id="soreDate" type="date" value="${today()}">
-    <label>部位（複数OK）</label>
-    <div class="row" id="sorePartRow">${SOREPARTS.map(p=>`<button class="chip" onclick="toggleSorePart('${p}',this)">${p}</button>`).join('')}</div>
+    <label>部位（イラストをタップ・複数OK）</label>
+    ${bodyMap()}
+    <div class="muted" style="font-size:12px;margin-top:6px">選択中：${(window._soreParts||[]).length?(window._soreParts).map(esc).join('・'):'なし'}</div>
     <label>強さ</label>
     <div class="row" id="soreLvRow">${['軽い','普通','強い'].map(l=>`<button class="chip" onclick="setSoreLv('${l}',this)">${l}</button>`).join('')}</div>
     <button class="btn" style="margin-top:10px" onclick="saveSore()">記録する</button>
@@ -961,6 +1014,7 @@ function aiContext(){const L=[];
   const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
   const sc=(D.schedule||[]).slice(-6);if(sc.length)L.push('◾直近の予定: '+sc.map(s=>`${s.date} ${s.type||''}${s.title||''}${s.time?'@'+s.time:''}`).join(' / '));
   const sp=D.supList.map(s=>s.name+(s.timing?`(${s.timing})`:'')).join('・');if(sp)L.push('◾常用サプリ: '+sp);
+  const wl=(D.wishlist||[]).slice(-8);if(wl.length)L.push('◾やってみたいメモ(気になる種目/投稿): '+wl.map(w=>w.text).join(' / '));
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
@@ -1006,7 +1060,17 @@ function vCoach(){
        <button class="minibtn" onclick="clearCoach()">履歴クリア</button>
        <button class="btn sm" style="width:auto" onclick="sendCoach()">送信（${aiModelChat().includes('sonnet')?'Sonnet':'Haiku'}）</button>
      </div>
-   </div>`;}
+   </div>
+   <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🔖 やりたいメモ（気になる種目・インスタ等のリンク）</summary>
+     <div class="muted" style="font-size:12px;margin-top:6px">見つけた種目やリンクをメモしておくと、コーチが提案の時に取り入れてくれる。※AIはリンク先を開けないので、種目名や一言も添えると精度UP。</div>
+     <div class="flex2" style="margin-top:8px"><input id="wishText" placeholder="例：ブルガリアンスクワット（IGで見た）"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addWish()">追加</button></div>
+     ${(D.wishlist||[]).slice().reverse().map(w=>`<div class="item"><div class="row" style="justify-content:space-between"><span style="flex:1;word-break:break-all">${esc(w.text)}</span><button class="del" onclick="delWish('${w.id}')">削除</button></div></div>`).join('')||'<div class="muted" style="margin-top:6px">まだなし</div>'}
+     ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">🐉 これらを取り入れて提案してもらう</button>`:''}
+   </details>`;}
+function addWish(){const t=(document.getElementById('wishText').value||'').trim();if(!t)return;D.wishlist.push({id:uid(),date:today(),text:t});save();render();}
+function delWish(id){D.wishlist=D.wishlist.filter(w=>w.id!==id);save();render();}
+function askWishlist(){const w=(D.wishlist||[]).map(x=>x.text).join(' / ')||'（なし）';
+  coachAsk('やってみたいメモがある：「'+w+'」。目標・今のメニュー・体調を踏まえて、これらを取り入れるべきか、どう組み込むか（頻度・置き換え・注意点）を提案して。リンクは開けないので種目名から一般的に。');}
 function modelOpts(sel){const M=[['claude-sonnet-5','Sonnet（賢い・相談向き）'],['claude-haiku-4-5-20251001','Haiku（安い・整理向き）']];
   return M.map(([v,l])=>`<option value="${v}"${v===sel?' selected':''}>${l}</option>`).join('');}
 function saveAI(){D.profile.apiKey=(document.getElementById('pfKey').value||'').trim();
