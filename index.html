@@ -144,7 +144,7 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[], coachMemo:''
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -154,12 +154,19 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!Array.isArray(d.photoNotes))d.photoNotes=[];
   if(!Array.isArray(d.wishlist))d.wishlist=[];
   if(typeof d.coachMemo!=='string')d.coachMemo='';
+  if(!d.exerciseNotes||typeof d.exerciseNotes!=='object')d.exerciseNotes={};
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtD=s=>{const d=new Date(s+'T00:00');return (d.getMonth()+1)+'/'+d.getDate();};
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function mdToHtml(s){let h=esc(s||'');
+  h=h.replace(/^\s{0,3}#{1,4}\s*(.+?)\s*$/gm,'<b style="display:block;margin:7px 0 2px;font-size:14px">$1</b>');
+  h=h.replace(/^\s*(?:[-*]\s+|・\s*)(.+)$/gm,'　• $1');
+  h=h.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+  h=h.replace(/\n/g,'<br>');
+  return h;}
 
 /* ============ 画像層 (IndexedDB) ============ */
 let _db;
@@ -324,13 +331,14 @@ function exCard(x,i){
   const tot=x.noWeight?1:(x.sets||[]).length;
   const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
   const menuOpen=(window._exMenu||{})[x.id];
+  const memoV=exNote(x.name)||x.memo||'';
   const head=`<div class="row" style="justify-content:space-between;align-items:center">
       <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
       <span style="display:flex;gap:2px"><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="AIにフォーム相談">🐉</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
     ${menuOpen?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="minibtn" onclick="renameItem('${x.id}')">✎ 名前</button><button class="minibtn" onclick="planMove(${i},-1)">↑ 上へ</button><button class="minibtn" onclick="planMove(${i},1)">↓ 下へ</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">🗑 削除</button></div>`:''}`;
   if(x.collapsed){
     return `<div class="card" style="padding:12px 15px">${head}
-    <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}${x.memo?' ・ <span style="color:var(--accentD);font-weight:700">📝メモあり（▸で開く）</span>':''}</div></div>`;
+    <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}${memoV?' ・ <span style="color:var(--accentD);font-weight:700">📝メモあり（▸で開く）</span>':''}</div></div>`;
   }
   const nwToggle=`<div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accentD)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
   if(x.noWeight){
@@ -338,14 +346,14 @@ function exCard(x,i){
     ${prev&&(prev.memo||(prev.sets&&prev.sets[0]&&prev.sets[0].dur))?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}${prev.sets&&prev.sets[0]&&prev.sets[0].dur?'　⏱'+esc(prev.sets[0].dur):''}${prev.memo?'　📝 '+esc(prev.memo):''}</div>`:''}
     <div class="row" style="margin-top:8px;align-items:center"><label style="margin:0">時間（分）</label>
       <input type="number" inputmode="numeric" style="width:100px" placeholder="分" value="${x.dur??''}" onchange="itemDur('${x.id}',this.value)"></div>
-    <textarea class="exmemo" placeholder="メモ（内容・感じたこと）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(x.memo||'')}</textarea>
+    <textarea class="exmemo" placeholder="メモ（内容・感じたこと）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(memoV)}</textarea>
     <button class="btn ${x.done?'':'ghost'}" style="margin-top:8px" onclick="itemDone('${x.id}')">${x.done?'✓ 完了':'完了にする'}</button>
   </div>`;
   }
   return `<div class="card">${head}${nwToggle}
     ${prev?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
-    <textarea class="exmemo" placeholder="メモ（フォーム・意識・効いた部位／コーチの書き込みもここに）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:40px">${esc(x.memo||'')}</textarea>
+    <textarea class="exmemo" placeholder="メモ（フォーム・意識・効いた部位／コーチの書き込みもここに・種目ごとに永続保存）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:40px">${esc(memoV)}</textarea>
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg${weightDeltaHtml(x,prev)}</div>
     <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
       ${(x.sets||[]).map((s,j)=>{const pv=(prev&&prev.sets)?prev.sets[j]:null;const pk=pv&&pv.weight!=null?pv.weight:'kg';const pr=pv&&pv.reps!=null?pv.reps:'回';return `<tr>
@@ -394,7 +402,9 @@ function setDone(id,j){const x=planItem(id);if(!x||!x.sets[j])return;const s=x.s
     if(x.sets.length&&x.sets.every(t=>t.done))x.collapsed=true;}save();render();}
 function setAdd(id){const x=planItem(id);if(!x)return;const last=x.sets[x.sets.length-1]||{kg:'',reps:''};x.sets.push({kg:last.kg,reps:last.reps,done:false});save();render();}
 function setDel(id){const x=planItem(id);if(!x||!x.sets.length)return;x.sets.pop();save();render();}
-function itemMemo(id,v){const x=planItem(id);if(x){x.memo=v;save();}}
+function exNote(name){return (D.exerciseNotes||{})[name]||'';}
+function setExNote(name,v){D.exerciseNotes=D.exerciseNotes||{};if(v&&v.trim())D.exerciseNotes[name]=v;else delete D.exerciseNotes[name];}
+function itemMemo(id,v){const x=planItem(id);if(x){x.memo=v;setExNote(x.name,v);save();}}
 function itemDur(id,v){const x=planItem(id);if(x){x.dur=v;save();}}
 function autoGrow(el){if(!el)return;el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';}
 function copyPrevTo(id){const x=planItem(id);if(!x)return;const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());if(!prev)return;
@@ -1037,6 +1047,7 @@ function aiContext(){const L=[];
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(){const p=D.profile;
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
+【回答スタイル】相手は医療従事者で基礎知識は十分。「部分痩せは不可／全身運動が必要／カロリー収支」等の一般論・前置き・教科書的説明は繰り返さない。結論と具体的・個別の助言（種目名・回数・重量・順番・意識点など）を短く。冗長な安全注意も不要。要点は太字や箇条書きで簡潔に、全体は短め。
 【メモの自動保存＝最重要ルール】アプリが回答末尾の専用行を解析し、あなたの代わりに自動で書き込む。ユーザーは絶対にコピペしない。
 ◆禁止：「コピーしておいてください」「メモ欄に貼り付けてください」「以下を控えて」等の"ユーザーに手作業させる案内"は一切しない。代わりに必ず下の専用行を出力する（それだけで保存される）。
 ◆「◯◯（種目名）のメモに残して／書いといて」等と頼まれたら → 本文では「メモに書いておきますね」と一言だけ添え、回答の一番最後に必ず：
@@ -1059,8 +1070,8 @@ async function runCoach(){window._coachBusy=true;render();
     ans=ans.replace(/NOTE[\[［]([^\]］]+)[\]］][:：]\s*([\s\S]*?)(?=\n{2,}\s*NOTE[\[［]|\n{2,}\s*MEMO[:：]|\s*$)/gi,(m0,nm,body)=>{
       const name=(nm||'').trim();const txt=(body||'').trim();if(!txt)return '';ensurePlan();
       const it=(D.plan.items||[]).find(x=>x.name===name)||(D.plan.items||[]).find(x=>x.name.includes(name)||name.includes(x.name));
-      if(it){it.memo=txt;notes.push('「'+it.name+'」のメモ');}
-      else{D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+'【'+name+'】'+txt;notes.push(name+'（種目が無いので全体メモへ）');}
+      const key=it?it.name:name;setExNote(key,txt);if(it)it.memo=txt;
+      notes.push('「'+key+'」のメモ'+(it?'':'（次に追加したら表示）'));
       return '';}).trim();
     ans=ans.replace(/^\s*MEMO[:：]\s*(.+)$/gmi,(_,g)=>{const t=g.trim();if(t)saved.push(t);return '';}).replace(/\n{3,}/g,'\n\n').trim();
     if(saved.length){D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+saved.map(s=>'・'+s).join('\n');}
@@ -1093,7 +1104,7 @@ function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AI
   <button class="btn" style="margin-top:8px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
 function vCoach(){
   if(!aiKey())return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>`+coachSetup();
-  const msgs=D.aiChats.map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${esc(m.content).replace(/\n/g,'<br>')}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
+  const msgs=D.aiChats.map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
     ||'<div class="muted" style="text-align:center;padding:24px 8px">目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」<br>「停滞してるので次の一手を」</div>';
   return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>
    <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
