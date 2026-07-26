@@ -144,7 +144,7 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -155,6 +155,9 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!Array.isArray(d.wishlist))d.wishlist=[];
   if(typeof d.coachMemo!=='string')d.coachMemo='';
   if(!d.exerciseNotes||typeof d.exerciseNotes!=='object')d.exerciseNotes={};
+  if(!d.aiThreads||typeof d.aiThreads!=='object')d.aiThreads={'総合':Array.isArray(d.aiChats)?d.aiChats:[]};
+  if(!Array.isArray(d.aiThreads['総合']))d.aiThreads['総合']=[];
+  if(!d.dailyNotes||typeof d.dailyNotes!=='object')d.dailyNotes={};
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -224,6 +227,10 @@ function vToday(){
   return `
   <h2>${esc(greet)}</h2>
   ${D.profile.goal?`<div class="card"><h3 style="margin-top:0">🎯 目標</h3>${esc(D.profile.goal)}</div>`:''}
+  <div class="card">
+    <h3 style="margin-top:0">📝 今日のひとこと・感想</h3>
+    <textarea id="dailyNote" class="exmemo" oninput="autoGrow(this)" onchange="saveDailyNote()" placeholder="今日の感想・気づき・体調をひとこと（日付ごとに保存）" style="min-height:44px">${esc((D.dailyNotes||{})[t]||'')}</textarea>
+  </div>
   <div class="card">
     <h3 style="margin-top:0">📅 今日の予定</h3>
     ${sc.length?sc.map(s=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
@@ -406,6 +413,7 @@ function exNote(name){return (D.exerciseNotes||{})[name]||'';}
 function setExNote(name,v){D.exerciseNotes=D.exerciseNotes||{};if(v&&v.trim())D.exerciseNotes[name]=v;else delete D.exerciseNotes[name];}
 function itemMemo(id,v){const x=planItem(id);if(x){x.memo=v;setExNote(x.name,v);save();}}
 function itemDur(id,v){const x=planItem(id);if(x){x.dur=v;save();}}
+function saveDailyNote(){const el=document.getElementById('dailyNote');if(!el)return;D.dailyNotes=D.dailyNotes||{};const t=today();if(el.value.trim())D.dailyNotes[t]=el.value;else delete D.dailyNotes[t];save();}
 function autoGrow(el){if(!el)return;el.style.height='auto';el.style.height=(el.scrollHeight+2)+'px';}
 function copyPrevTo(id){const x=planItem(id);if(!x)return;const prev=[...D.workouts].reverse().find(w=>w.name===x.name&&w.date!==today());if(!prev)return;
   x.sets=(prev.sets.length?prev.sets:[{}]).map(s=>({kg:s.weight==null?'':s.weight,reps:s.reps==null?'':s.reps,done:false}));save();render();}
@@ -1045,7 +1053,7 @@ function aiContext(){const L=[];
   const sp=D.supList.map(s=>s.name+(s.timing?`(${s.timing})`:'')).join('・');if(sp)L.push('◾常用サプリ: '+sp);
   const wl=(D.wishlist||[]).slice(-8);if(wl.length)L.push('◾やってみたいメモ(気になる種目/投稿): '+wl.map(w=>w.text).join(' / '));
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
-function aiSystem(){const p=D.profile;
+function aiSystem(focus){const p=D.profile;const focusLine=focus?`【今回の話題】種目「${focus}」に集中したスレッドです。${focus}に関する相談・フォーム・記録を中心に答えて。\n`:'';
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
 【回答スタイル】相手は医療従事者で基礎知識は十分。「部分痩せは不可／全身運動が必要／カロリー収支」等の一般論・前置き・教科書的説明は繰り返さない。結論と具体的・個別の助言（種目名・回数・重量・順番・意識点など）を短く。冗長な安全注意も不要。要点は太字や箇条書きで簡潔に、全体は短め。
 【メモの自動保存＝最重要ルール】アプリが回答末尾の専用行を解析し、あなたの代わりに自動で書き込む。ユーザーは絶対にコピペしない。
@@ -1055,16 +1063,19 @@ NOTE[種目名]: 手順や注意点の本文（改行可）
 ◆恒久情報や「覚えておいて」→ 回答の最後に MEMO: <一文>（複数可）
 ◆これらの専用行は画面に表示されないので、本文側に重複して長々書かない。該当しない普通の相談では付けない。
 例）ユーザー「キックバックのやり方、メモに書いといて」→ 本文「フォームのメモを残しておきますね。」＋最後に「NOTE[キックバック]: 1)肘を固定し前腕を後方へ 2)収縮位で1秒 注意)反動を使わない」
-【目標(理想の体型)】${p.goal||'（未設定）'}
+${focusLine}【目標(理想の体型)】${p.goal||'（未設定）'}
 ${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${aiContext()}`;}
+function curThread(){window._thread=window._thread||'総合';D.aiThreads=D.aiThreads||{};if(!Array.isArray(D.aiThreads[window._thread]))D.aiThreads[window._thread]=[];return D.aiThreads[window._thread];}
+async function aiCallRetry(msgs,opts){let last;for(let i=0;i<2;i++){try{return await aiCall(msgs,opts);}catch(e){last=e;if(/通信エラー|タイムアウト/.test(e.message)&&i<1){await new Promise(r=>setTimeout(r,1200));continue;}throw e;}}throw last;}
 async function runCoach(){window._coachBusy=true;render();
-  let msgs=D.aiChats.filter(m=>m.role==='user'||m.role==='assistant').slice(-20).map(m=>({role:m.role,content:(m.content||'').split('—— 🔧診断')[0]}));
+  const thread=curThread();const focus=window._thread==='総合'?'':window._thread;
+  let msgs=thread.filter(m=>m.role==='user'||m.role==='assistant').slice(-20).map(m=>({role:m.role,content:(m.content||'').split('—— 🔧診断')[0]}));
   while(msgs.length&&msgs[0].role!=='user')msgs.shift();
   try{let ans,note='';
-    try{ans=await aiCall(msgs,{system:aiSystem(),model:aiModelChat(),max_tokens:4000});}
+    try{ans=await aiCallRetry(msgs,{system:aiSystem(focus),model:aiModelChat(),max_tokens:4000});}
     catch(e1){
       if(aiModelChat()!==aiModelData()){note='〔'+(aiModelChat().includes('sonnet')?'Sonnet':'選択モデル')+'が失敗（'+e1.message+'）→Haikuで回答〕\n\n';
-        ans=await aiCall(msgs,{system:aiSystem(),model:aiModelData(),max_tokens:4000});}
+        ans=await aiCallRetry(msgs,{system:aiSystem(focus),model:aiModelData(),max_tokens:4000});}
       else throw e1;}
     let saved=[],notes=[];
     ans=ans.replace(/NOTE[\[［]([^\]］]+)[\]］][:：]\s*([\s\S]*?)(?=\n{2,}\s*NOTE[\[［]|\n{2,}\s*MEMO[:：]|\s*$)/gi,(m0,nm,body)=>{
@@ -1078,22 +1089,23 @@ async function runCoach(){window._coachBusy=true;render();
     const allSaved=notes.concat(saved.length?['覚えておくメモ']:[]);
     const savedNote=allSaved.length?('\n\n📌 自動保存: '+allSaved.join(' / ')):'';
     const m=window._aiMeta||{};const dbg=`\n\n—— 🔧診断: ${(m.model||'').includes('sonnet')?'Sonnet':'Haiku'} / 停止:${m.stop} / 出力:${m.out}tok / blocks:${m.types}`;
-    D.aiChats.push({role:'assistant',content:note+ans+savedNote+dbg});}
-  catch(e){D.aiChats.push({role:'assistant',content:'⚠️ '+e.message});}
+    thread.push({role:'assistant',content:note+ans+savedNote+dbg});}
+  catch(e){thread.push({role:'assistant',content:'⚠️ '+e.message+(/通信|タイムアウト|Failed/i.test(e.message)?'\n（通信が不安定かも。もう一度送ると通ることが多いです）':'')});}
   window._coachBusy=false;save();render();}
 function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
   if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
-  D.aiChats.push({role:'user',content:q});if(inp)inp.value='';save();runCoach();}
-function coachAsk(q){if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
-  D.aiChats.push({role:'user',content:q});save();setTab('コーチ');runCoach();}
+  curThread().push({role:'user',content:q});window._coachDraft='';if(inp)inp.value='';save();runCoach();}
+function coachAsk(q,thread){if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(thread)window._thread=thread;curThread().push({role:'user',content:q});save();setTab('コーチ');runCoach();}
+function switchThread(name){window._thread=name;render();setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);}
 function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
 function askDiagnoseMenu(){ensurePlan();const names=D.plan.items.map(x=>x.name).join('・')||'（まだ種目なし）';
   coachAsk('今トレ画面に入れている種目は「'+names+'」。目標に対して、部位バランス（押す/引く/脚）や総ボリュームは適切か診断して。足す/減らす/順番の提案も具体的に。');}
-function askForm(name){coachAsk('「'+name+'」について、狙う筋（起始・停止と主な作用）／効かせるコツ／よくある代償動作と直し方を、整形外科志望向けに解剖学的に簡潔に教えて。「うまく効いてない気がする時」にどこを意識すべきかも。');}
+function askForm(name){coachAsk('「'+name+'」について、狙う筋（起始・停止と主な作用）／効かせるコツ／よくある代償動作と直し方を、整形外科志望向けに簡潔に。「うまく効いてない気がする時」の意識点も。',name);}
 function askRunPlan(){coachAsk('私はラン初心者。最近のランの記録・体調・目標を踏まえて、無理なく続く1〜2週間のランプランを提案して（距離・ペース・頻度、走れない日の代替、故障予防のフォーム一言も）。');}
 function askSupTiming(){const sup=D.supList.map(s=>s.name+(s.count?`(${s.count}${supUnit(s)})`:'')+(s.timing?`/${s.timing}`:'')).join('・')||'（未登録）';
   coachAsk('私の常用サプリは「'+sup+'」。目標とトレ内容を踏まえて、各サプリを飲むタイミング・量・組み合わせ（一緒に摂ると良い/避ける）を最適化して。一般的な範囲で、医療的処方ではない前提で。');}
-function clearCoach(){if(confirm('会話履歴を消す？')){D.aiChats=[];save();render();}}
+function clearCoach(){const t=window._thread||'総合';if(confirm('「'+t+'」の会話履歴を消す？')){D.aiThreads[t]=[];if(t!=='総合')delete D.aiThreads[t],window._thread='総合';save();render();}}
 function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AIコーチを開眼させる</h3>
   <div class="muted">まだAPIキーが未設定です。下の手順で開眼できます。</div>
   <ol style="padding-left:18px;line-height:1.9;font-size:14px">
@@ -1104,12 +1116,16 @@ function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AI
   <button class="btn" style="margin-top:8px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
 function vCoach(){
   if(!aiKey())return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>`+coachSetup();
-  const msgs=D.aiChats.map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
-    ||'<div class="muted" style="text-align:center;padding:24px 8px">目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」<br>「停滞してるので次の一手を」</div>';
-  return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>
+  const cur=window._thread=window._thread||'総合';D.aiThreads=D.aiThreads||{'総合':[]};if(!Array.isArray(D.aiThreads[cur]))D.aiThreads[cur]=[];
+  const names=['総合'].concat(Object.keys(D.aiThreads).filter(n=>n!=='総合'));
+  const chips=`<div class="row" style="gap:6px;margin-bottom:8px;overflow-x:auto;flex-wrap:nowrap">${names.map(n=>`<button class="chip ${n===cur?'on':''}" style="flex:0 0 auto;white-space:nowrap" onclick="switchThread('${esc(n).replace(/'/g,'')}')">${n==='総合'?'💬 総合':'🏋️ '+esc(n)}</button>`).join('')}</div>`;
+  const msgs=D.aiThreads[cur].map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
+    ||`<div class="muted" style="text-align:center;padding:24px 8px">${cur==='総合'?'目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」':'「'+esc(cur)+'」専用スレッド。この種目のフォーム・重量設定・悩みをここで相談。<br>（トレ画面の種目カードの🐉からも開けます）'}</div>`;
+  return `<div class="subtabs"><button class="on">🐉 コーチ（${cur==='総合'?'総合':esc(cur)}）</button></div>
+   ${chips}
    <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
    <div class="card">
-     <textarea id="coachInput" placeholder="相談を入力…" style="min-height:54px"></textarea>
+     <textarea id="coachInput" oninput="window._coachDraft=this.value" placeholder="相談を入力…（${cur==='総合'?'総合':esc(cur)}）" style="min-height:54px">${esc(window._coachDraft||'')}</textarea>
      <div class="row" style="justify-content:space-between;margin-top:6px">
        <button class="minibtn" onclick="clearCoach()">履歴クリア</button>
        <button class="btn sm" style="width:auto" onclick="sendCoach()">送信（${aiModelChat().includes('sonnet')?'Sonnet':'Haiku'}）</button>
@@ -1127,7 +1143,7 @@ function vCoach(){
      ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">🐉 これらを取り入れて提案してもらう</button>`:''}
    </details>`;}
 function saveCoachMemo(){const el=document.getElementById('coachMemo');if(el){D.coachMemo=el.value;save();alert('保存しました（毎回コーチに渡されます）');}}
-function memoAdd(i){const m=D.aiChats[i];if(!m)return;let t=(m.content||'').split('—— 🔧診断')[0].replace(/^〔[^〕]*〕\s*/,'').trim();
+function memoAdd(i){const m=curThread()[i];if(!m)return;let t=(m.content||'').split('—— 🔧診断')[0].replace(/^〔[^〕]*〕\s*/,'').trim();
   if(!t)return;D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+'・'+t.slice(0,400);save();alert('コーチのメモに追加しました');render();}
 function addWish(){const t=(document.getElementById('wishText').value||'').trim();if(!t)return;D.wishlist.push({id:uid(),date:today(),text:t});save();render();}
 function delWish(id){D.wishlist=D.wishlist.filter(w=>w.id!==id);save();render();}
