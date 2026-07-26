@@ -165,10 +165,12 @@ const today=()=>new Date().toISOString().slice(0,10);
 const fmtD=s=>{const d=new Date(s+'T00:00');return (d.getMonth()+1)+'/'+d.getDate();};
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function mdToHtml(s){let h=esc(s||'');
-  h=h.replace(/^\s{0,3}#{1,4}\s*(.+?)\s*$/gm,'<b style="display:block;margin:7px 0 2px;font-size:14px">$1</b>');
-  h=h.replace(/^\s*(?:[-*]\s+|・\s*)(.+)$/gm,'　• $1');
+  h=h.replace(/^\s{0,3}#{1,4}\s*(.+?)\s*$/gm,'<div style="font-weight:800;margin:9px 0 3px">$1</div>');
+  h=h.replace(/^\s*(?:[-*]\s+|・\s*)(.+)$/gm,'<div style="padding-left:1.1em;text-indent:-0.8em;margin:2px 0">• $1</div>');
+  h=h.replace(/^\s*(\d+)[.)]\s+(.+)$/gm,'<div style="padding-left:1.4em;text-indent:-1.4em;margin:2px 0">$1. $2</div>');
   h=h.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
-  h=h.replace(/\n/g,'<br>');
+  h=h.replace(/(<\/div>)\n/g,'$1');
+  h=h.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
   return h;}
 
 /* ============ 画像層 (IndexedDB) ============ */
@@ -1088,8 +1090,7 @@ async function runCoach(){window._coachBusy=true;render();
     if(saved.length){D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+saved.map(s=>'・'+s).join('\n');}
     const allSaved=notes.concat(saved.length?['覚えておくメモ']:[]);
     const savedNote=allSaved.length?('\n\n📌 自動保存: '+allSaved.join(' / ')):'';
-    const m=window._aiMeta||{};const dbg=`\n\n—— 🔧診断: ${(m.model||'').includes('sonnet')?'Sonnet':'Haiku'} / 停止:${m.stop} / 出力:${m.out}tok / blocks:${m.types}`;
-    thread.push({role:'assistant',content:note+ans+savedNote+dbg});}
+    thread.push({role:'assistant',content:note+ans+savedNote});}
   catch(e){thread.push({role:'assistant',content:'⚠️ '+e.message+(/通信|タイムアウト|Failed/i.test(e.message)?'\n（通信が不安定かも。もう一度送ると通ることが多いです）':'')});}
   window._coachBusy=false;save();render();}
 function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
@@ -1136,6 +1137,12 @@ function vCoach(){
      <textarea id="coachMemo" placeholder="コーチに覚えておいてほしいことを書く" style="min-height:70px;margin-top:6px">${esc(D.coachMemo||'')}</textarea>
      <button class="btn sm ghost" style="width:100%;margin-top:6px" onclick="saveCoachMemo()">保存</button>
    </details>
+   <details class="card" style="margin-top:8px"${Object.keys(D.exerciseNotes||{}).length?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📒 種目メモ（コーチが種目ごとに保存した内容）</summary>
+     ${Object.keys(D.exerciseNotes||{}).length?Object.keys(D.exerciseNotes).map(nm=>`
+       <div class="item"><div class="row" style="justify-content:space-between;align-items:center"><b>🏋️ ${esc(nm)}</b>
+         <span style="display:flex;gap:4px"><button class="minibtn" onclick="coachAsk('「${esc(nm).replace(/'/g,'')}」について相談したい。','${esc(nm).replace(/'/g,'')}')">🐉 相談</button><button class="del" onclick="delExNote('${esc(nm).replace(/'/g,'')}')">削除</button></span></div>
+         <div style="font-size:13px;line-height:1.7;margin-top:6px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px">${mdToHtml(D.exerciseNotes[nm])}</div></div>`).join(''):'<div class="muted" style="margin-top:6px">まだなし。コーチに「◯◯（種目名）のメモに書いといて」と頼むと、その種目に保存されてここに並びます。</div>'}
+   </details>
    <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🔖 やりたいメモ（気になる種目・インスタ等のリンク）</summary>
      <div class="muted" style="font-size:12px;margin-top:6px">見つけた種目やリンクをメモしておくと、コーチが提案の時に取り入れてくれる。※AIはリンク先を開けないので、種目名や一言も添えると精度UP。</div>
      <div class="flex2" style="margin-top:8px"><input id="wishText" placeholder="例：ブルガリアンスクワット（IGで見た）"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addWish()">追加</button></div>
@@ -1143,6 +1150,7 @@ function vCoach(){
      ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">🐉 これらを取り入れて提案してもらう</button>`:''}
    </details>`;}
 function saveCoachMemo(){const el=document.getElementById('coachMemo');if(el){D.coachMemo=el.value;save();alert('保存しました（毎回コーチに渡されます）');}}
+function delExNote(name){if(confirm('「'+name+'」の種目メモを削除する？')){D.exerciseNotes=D.exerciseNotes||{};delete D.exerciseNotes[name];save();render();}}
 function memoAdd(i){const m=curThread()[i];if(!m)return;let t=(m.content||'').split('—— 🔧診断')[0].replace(/^〔[^〕]*〕\s*/,'').trim();
   if(!t)return;D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+'・'+t.slice(0,400);save();alert('コーチのメモに追加しました');render();}
 function addWish(){const t=(document.getElementById('wishText').value||'').trim();if(!t)return;D.wishlist.push({id:uid(),date:today(),text:t});save();render();}
