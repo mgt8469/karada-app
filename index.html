@@ -116,8 +116,51 @@
   .miniset{display:flex;align-items:center;gap:4px}
   .miniset button{width:32px;height:42px;border:1px solid var(--line);background:var(--card2);border-radius:8px;color:var(--accentD);font-weight:800;font-size:18px;cursor:pointer;flex:0 0 auto}
   .miniset input{width:54px;text-align:center;padding:9px 2px;font-size:16px;font-weight:700}
-  .ck{width:46px;height:42px;border:1px solid var(--line);background:var(--card2);border-radius:9px;color:var(--sub);cursor:pointer;font-weight:800;font-size:16px}
+  .ck{width:46px;height:42px;border:1px solid var(--line);background:var(--card2);border-radius:9px;color:var(--sub);cursor:pointer;font-weight:800;font-size:16px;flex:0 0 auto}
   .ck.on{background:var(--accent);color:#16181c;border-color:var(--accentD)}
+  /* --- セット行（重量±5/±1・回数±1） --- */
+  .setwrap{margin-top:8px}
+  .setrow{border-top:1px solid var(--line);padding:9px 0}
+  .setrow:first-child{border-top:none}
+  .setrow.done{background:rgba(198,242,78,.10);border-radius:9px;padding-left:5px;padding-right:5px}
+  .setln{display:flex;align-items:center;gap:5px}
+  .setno{width:22px;flex:0 0 auto;font-weight:800;color:var(--sub);font-size:13px;text-align:center}
+  .stepb{flex:0 0 auto;min-width:31px;height:42px;padding:0 2px;border:1px solid var(--line);background:var(--card2);
+    border-radius:8px;color:var(--accentD);font-weight:800;font-size:13px;cursor:pointer;font-family:inherit}
+  .stepb:active{background:var(--accent);color:#16181c}
+  .numin{flex:1 1 auto;min-width:0;width:auto;text-align:center;font-size:17px;font-weight:800;padding:10px 2px}
+  .unit{flex:0 0 auto;font-size:12px;color:var(--sub);font-weight:700;width:17px}
+  /* --- 解剖ページ（雑誌風レイアウト） --- */
+  .anatbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+    padding:14px;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .anathero{padding:22px 2px 16px;border-bottom:3px solid var(--ink);margin-bottom:14px}
+  .anatkicker{display:inline-block;background:var(--ink);color:#fff;font-size:10.5px;font-weight:800;
+    letter-spacing:.14em;padding:4px 10px;border-radius:3px}
+  .anattitle{font-size:29px;line-height:1.12;font-weight:800;margin:10px 0 4px;letter-spacing:-.01em}
+  .anaten{font-size:11.5px;font-weight:800;letter-spacing:.22em;color:var(--sub)}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid;vertical-align:-1px;margin-right:3px}
+  .mcard{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accentD);
+    border-radius:10px;padding:13px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+  .mhead{display:flex;gap:9px;align-items:flex-start;margin-bottom:9px}
+  .mno{flex:0 0 auto;width:25px;height:25px;border-radius:50%;background:var(--ink);color:#fff;
+    font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .mno.sub{background:var(--accent2)}
+  .mspec{display:flex;gap:8px;border-top:1px dotted var(--line);padding:6px 0;font-size:12.5px;line-height:1.65}
+  .mspec>span{flex:0 0 58px;color:var(--sub);font-weight:800;font-size:11px;padding-top:2px;letter-spacing:.03em}
+  .mspec>div{flex:1}
+  .anatsec{margin:16px 0 0}
+  .anatsech{font-size:15px;font-weight:800;border-left:5px solid var(--accentD);padding:1px 0 1px 9px;margin-bottom:9px}
+  .anatsech span{display:block;font-size:9.5px;letter-spacing:.2em;color:var(--sub);font-weight:800}
+  .cueline{display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px dotted var(--line);font-size:13.5px;line-height:1.7}
+  .cueno{flex:0 0 auto;width:21px;height:21px;border-radius:6px;background:var(--accent);color:#16181c;
+    font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px}
+  .cueno.warn{background:var(--warn);color:#fff}
+  /* --- 長押しドラッグ並べ替え --- */
+  .draghead{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+  .excard.dragging{position:relative;z-index:5;opacity:.95;box-shadow:0 10px 26px rgba(20,30,50,.28);
+    border-color:var(--accentD);transition:none}
+  .grip{flex:0 0 auto;color:var(--sub);font-size:15px;letter-spacing:-1px;padding:2px 3px 2px 0;line-height:1}
+  .dragmode .excard:not(.dragging){transition:transform .12s}
 </style>
 </head>
 <body>
@@ -132,6 +175,8 @@
 
 <!-- 設定シート -->
 <div class="sheet" id="settingsSheet"></div>
+<!-- 解剖ページ -->
+<div class="sheet" id="anatSheet"></div>
 <!-- 画像拡大 -->
 <div class="overlay" id="imgOverlay" onclick="this.classList.remove('on')"><img id="imgBig"></div>
 
@@ -144,7 +189,7 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}, coachLog:[], anatCache:{}
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -158,6 +203,8 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!d.aiThreads||typeof d.aiThreads!=='object')d.aiThreads={'総合':Array.isArray(d.aiChats)?d.aiChats:[]};
   if(!Array.isArray(d.aiThreads['総合']))d.aiThreads['総合']=[];
   if(!d.dailyNotes||typeof d.dailyNotes!=='object')d.dailyNotes={};
+  if(!Array.isArray(d.coachLog))d.coachLog=[];
+  if(!d.anatCache||typeof d.anatCache!=='object')d.anatCache={};
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -188,7 +235,7 @@ function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new I
     res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
 
 /* ============ ルーティング ============ */
-const TABS=[['今日','home'],['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar'],['コーチ','coach']];
+const TABS=[['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar'],['コーチ','coach']];
 const ICONS={
   home:'<path d="M4 11.5 12 4l8 7.5"/><path d="M6.5 10.5V20h11v-9.5"/>',
   dumbbell:'<path d="M4 9v6M7 6.5v11M17 6.5v11M20 9v6M7 12h10"/>',
@@ -198,27 +245,32 @@ const ICONS={
   coach:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/>'
 };
 function navIcon(n){return `<svg class="nic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]||''}</svg>`;}
-let tab='今日', sub={};
+let tab='トレ', sub={};
 function setTab(t){tab=t;render();window.scrollTo(0,0);}
 function setSub(k,v){sub[k]=v;render();}
 function render(){
   document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
     `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${navIcon(i)}</span>${t}</button>`).join('');
   const v=document.getElementById('view');
-  v.innerHTML=({'今日':vToday,'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar,'コーチ':vCoach}[tab])();
+  v.innerHTML=(({'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar,'コーチ':vCoach}[tab])||vTre)();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
   if(tab==='コーチ')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
   if(tab==='食事')loadCalThumbs(document.getElementById('view'));
-  if(tab==='トレ')setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
+  setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
   const sb=document.getElementById('sessbar');
   if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs;
     if(active){sb.className='on';sb.innerHTML=sessBar();document.body.classList.add('hasbar');}else{sb.className='';sb.innerHTML='';document.body.classList.remove('hasbar');}}
   startSessTick();
 }
 
-/* ============ 今日 ============ */
-function vToday(){
+/* ============ 今日ブロック（カレンダータブの先頭に統合。旧「今日」タブは廃止）============ */
+function dailyNoteCard(title){const t=today();
+  return `<div class="card">
+    <h3 style="margin-top:0">${title||'📝 今日のひとこと・感想'}</h3>
+    <textarea id="dailyNote" class="exmemo" oninput="autoGrow(this)" onchange="saveDailyNote()" placeholder="今日の感想・気づき・体調をひとこと（日付ごとに保存）" style="min-height:44px">${esc((D.dailyNotes||{})[t]||'')}</textarea>
+  </div>`;}
+function todayBlock(){
   const t=today();
   const sc=D.schedule.filter(s=>s.date===t);
   const w=D.workouts.filter(x=>x.date===t).length;
@@ -227,42 +279,30 @@ function vToday(){
   const cond=D.conditions.find(x=>x.date===t);
   const greet=(D.profile.name?D.profile.name+' さん、':'')+'今日もおつかれさま';
   return `
-  <h2>${esc(greet)}</h2>
+  <h2 style="margin-top:14px">${esc(greet)}</h2>
   ${D.profile.goal?`<div class="card"><h3 style="margin-top:0">🎯 目標</h3>${esc(D.profile.goal)}</div>`:''}
-  <div class="card">
-    <h3 style="margin-top:0">📝 今日のひとこと・感想</h3>
-    <textarea id="dailyNote" class="exmemo" oninput="autoGrow(this)" onchange="saveDailyNote()" placeholder="今日の感想・気づき・体調をひとこと（日付ごとに保存）" style="min-height:44px">${esc((D.dailyNotes||{})[t]||'')}</textarea>
-  </div>
-  <div class="card">
-    <h3 style="margin-top:0">📅 今日の予定</h3>
-    ${sc.length?sc.map(s=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
-      <input type="checkbox" ${s.done?'checked':''} onchange="toggleSchedule('${s.id}')">
-      <span style="${s.done?'text-decoration:line-through;color:var(--sub)':''}">
-      <span class="pill ${s.type==='運動'?'':'ok'}">${s.type}</span> ${esc(s.title)} ${s.time?`<span class="muted">${esc(s.time)}</span>`:''}</span>
-      </label><button class="del" onclick="delItem('schedule','${s.id}')">削除</button></div>`).join('')
-      :'<div class="muted">まだ予定なし</div>'}
-    <div class="flex3" style="margin-top:10px">
-      <select id="scType"><option>運動</option><option>食事</option></select>
-      <input id="scTitle" placeholder="内容（例：脚トレ）">
-      <input id="scTime" placeholder="時間 任意" style="max-width:90px">
-    </div>
-    <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="addSchedule()">＋予定を追加</button>
-  </div>
   <div class="kpi">
     <div><b>${w}</b><span>トレ</span></div>
     <div><b>${m.length}</b><span>食事記録</span></div>
     <div><b>${sup}</b><span>サプリ✓</span></div>
     <div><b>${cond?(cond.period?'🩸':'—'):'—'}</b><span>周期</span></div>
   </div>
-  <h3>クイック記録</h3>
-  <div class="row">
-    <button class="chip" onclick="setTab('トレ')">🏋️ トレを記録</button>
-    <button class="chip" onclick="setSub('tre','ラン')||setTab('トレ')">🏃 ラン</button>
-    <button class="chip" onclick="setTab('食事')">🍽️ 食事</button>
-    <button class="chip" onclick="setSub('shoku','サプリ')||setTab('食事')">💊 サプリ</button>
-    <button class="chip" onclick="setSub('kbody','採寸')||setTab('からだ')">📏 採寸</button>
-    <button class="chip" onclick="setSub('kbody','体調・周期')||setTab('からだ')">🌙 体調</button>
-  </div>`;
+  ${dailyNoteCard()}
+  <details class="card"${sc.length?' open':''}>
+    <summary style="cursor:pointer;font-weight:700;list-style:none">📅 今日の予定${sc.length?`（${sc.filter(s=>s.done).length}/${sc.length}）`:''}</summary>
+    ${sc.length?sc.map(s=>`<div class="item"><label style="display:flex;gap:8px;align-items:center;margin:0">
+      <input type="checkbox" ${s.done?'checked':''} onchange="toggleSchedule('${s.id}')">
+      <span style="${s.done?'text-decoration:line-through;color:var(--sub)':''}">
+      <span class="pill ${s.type==='運動'?'':'ok'}">${s.type}</span> ${esc(s.title)} ${s.time?`<span class="muted">${esc(s.time)}</span>`:''}</span>
+      </label><button class="del" onclick="delItem('schedule','${s.id}')">削除</button></div>`).join('')
+      :'<div class="muted" style="margin-top:6px">まだ予定なし</div>'}
+    <div class="flex3" style="margin-top:10px">
+      <select id="scType"><option>運動</option><option>食事</option></select>
+      <input id="scTitle" placeholder="内容（例：脚トレ）">
+      <input id="scTime" placeholder="時間 任意" style="max-width:90px">
+    </div>
+    <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="addSchedule()">＋予定を追加</button>
+  </details>`;
 }
 function addSchedule(){const title=document.getElementById('scTitle').value.trim();if(!title)return;
   D.schedule.push({id:uid(),date:today(),type:document.getElementById('scType').value,title,time:document.getElementById('scTime').value.trim(),done:false});save();render();}
@@ -306,7 +346,14 @@ function vKin(){
     <div class="muted" style="font-size:11px;margin-top:6px">目標・履歴・筋肉痛・体調を踏まえてコーチ（Sonnet）が回答。もっと細かい相談はコーチタブでどうぞ。</div>
   </div>
   <datalist id="exList">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
-  ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>'}
+  ${(()=>{
+    const hide=ended&&D.plan.hideUndone!==false;
+    const shown=items.map((x,i)=>({x,i})).filter(o=>!hide||itemPerformed(o.x));
+    const hidden=items.length-shown.length;
+    if(!items.length)return '<div class="card"><div class="muted">種目がまだありません。下で追加するか、過去のメニューを読み込んでね。</div></div>';
+    return shown.map(o=>exCard(o.x,o.i)).join('')
+      +(ended?`<button class="btn gray sm" style="width:100%;margin-bottom:12px" onclick="toggleHideUndone()">${hide?(hidden?`👁 やってない種目を表示（${hidden}件）`:'👁 全種目を表示'):'🙈 やってない種目を隠す'}</button>`:'');
+  })()}
   <div class="card">
     <h3 style="margin-top:0">＋ 種目を追加</h3>
     <div class="flex2"><input id="planEx" placeholder="種目名（例：スクワット）" list="exList"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addPlan()">追加</button></div>
@@ -341,17 +388,18 @@ function exCard(x,i){
   const allDone=x.noWeight?x.done:(tot>0&&dc===tot);
   const menuOpen=(window._exMenu||{})[x.id];
   const memoV=exNote(x.name)||x.memo||'';
-  const head=`<div class="row" style="justify-content:space-between;align-items:center">
-      <b>${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span style="display:flex;gap:2px"><button class="minibtn" onclick="askForm('${esc(x.name).replace(/'/g,'')}')" title="AIにフォーム相談">🐉</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
+  const nmQ=esc(x.name).replace(/'/g,'');
+  const head=`<div class="row draghead" style="justify-content:space-between;align-items:center" ontouchstart="dragStart(event,'${x.id}')" onmousedown="dragStart(event,'${x.id}')" title="長押しでドラッグして並べ替え">
+      <b style="flex:1 1 auto;min-width:0"><span class="grip">⠿</span> ${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
+      <span style="display:flex;gap:2px;flex:0 0 auto"><button class="minibtn" onclick="openAnat('${nmQ}')" title="解剖ページ（効く筋・神経・意識点）">🫀</button><button class="minibtn" onclick="askForm('${nmQ}')" title="AIにフォーム相談">🐉</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
     ${menuOpen?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="minibtn" onclick="renameItem('${x.id}')">✎ 名前</button><button class="minibtn" onclick="planMove(${i},-1)">↑ 上へ</button><button class="minibtn" onclick="planMove(${i},1)">↓ 下へ</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">🗑 削除</button></div>`:''}`;
   if(x.collapsed){
-    return `<div class="card" style="padding:12px 15px">${head}
+    return `<div class="card excard" data-eid="${x.id}" style="padding:12px 15px">${head}
     <div class="muted" style="margin-top:2px">${x.noWeight?(x.done?'完了':'メモのみ・未完了'):`総ボリューム ${itemVol(x)}kg・${dc}/${tot}ｾｯﾄ完了`}${memoV?' ・ <span style="color:var(--accentD);font-weight:700">📝メモあり（▸で開く）</span>':''}</div></div>`;
   }
   const nwToggle=`<div style="margin-top:6px"><button class="minibtn" style="${x.noWeight?'background:var(--accent);color:#16181c;border-color:var(--accentD)':''}" onclick="toggleNoWeight('${x.id}')">${x.noWeight?'✓ 重量なし（メモのみ）':'重量なしにする（ストレッチ等）'}</button></div>`;
   if(x.noWeight){
-    return `<div class="card">${head}${nwToggle}
+    return `<div class="card excard" data-eid="${x.id}">${head}${nwToggle}
     ${prev&&(prev.memo||(prev.sets&&prev.sets[0]&&prev.sets[0].dur))?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}${prev.sets&&prev.sets[0]&&prev.sets[0].dur?'　⏱'+esc(prev.sets[0].dur):''}${prev.memo?'　📝 '+esc(prev.memo):''}</div>`:''}
     <div class="row" style="margin-top:8px;align-items:center"><label style="margin:0">時間（分）</label>
       <input type="number" inputmode="numeric" style="width:100px" placeholder="分" value="${x.dur??''}" onchange="itemDur('${x.id}',this.value)"></div>
@@ -359,18 +407,33 @@ function exCard(x,i){
     <button class="btn ${x.done?'':'ghost'}" style="margin-top:8px" onclick="itemDone('${x.id}')">${x.done?'✓ 完了':'完了にする'}</button>
   </div>`;
   }
-  return `<div class="card">${head}${nwToggle}
+  return `<div class="card excard" data-eid="${x.id}">${head}${nwToggle}
     ${prev?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
     <textarea class="exmemo" placeholder="メモ（フォーム・意識・効いた部位／コーチの書き込みもここに・種目ごとに永続保存）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:40px">${esc(memoV)}</textarea>
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg${weightDeltaHtml(x,prev)}</div>
-    <table class="settbl"><tr class="hd"><td>ｾｯﾄ</td><td>kg</td><td>回</td><td style="text-align:center">完了</td></tr>
-      ${(x.sets||[]).map((s,j)=>{const pv=(prev&&prev.sets)?prev.sets[j]:null;const pk=pv&&pv.weight!=null?pv.weight:'kg';const pr=pv&&pv.reps!=null?pv.reps:'回';return `<tr>
-        <td>${j+1}</td>
-        <td><input class="kgin" type="number" inputmode="decimal" value="${s.kg??''}" placeholder="${pk}" onchange="setField('${x.id}',${j},'kg',this.value)"></td>
-        <td><span class="miniset"><button onclick="setStep('${x.id}',${j},'reps',-1)">−</button><input type="number" inputmode="numeric" value="${s.reps??''}" placeholder="${pr}" onchange="setField('${x.id}',${j},'reps',this.value)"><button onclick="setStep('${x.id}',${j},'reps',1)">＋</button></span></td>
-        <td style="text-align:center"><button class="ck ${s.done?'on':''}" onclick="setDone('${x.id}',${j})">✓</button></td></tr>`;}).join('')}
-    </table>
+    <div class="setwrap">
+      ${(x.sets||[]).map((s,j)=>{const pv=(prev&&prev.sets)?prev.sets[j]:null;const pk=pv&&pv.weight!=null?pv.weight:'kg';const pr=pv&&pv.reps!=null?pv.reps:'回';return `<div class="setrow${s.done?' done':''}">
+        <div class="setln">
+          <span class="setno">${j+1}</span>
+          <button class="stepb" onclick="setStep('${x.id}',${j},'kg',-5)">−5</button>
+          <button class="stepb" onclick="setStep('${x.id}',${j},'kg',-1)">−1</button>
+          <input class="numin" type="number" inputmode="decimal" value="${s.kg??''}" placeholder="${pk}" onchange="setField('${x.id}',${j},'kg',this.value)">
+          <span class="unit">kg</span>
+          <button class="stepb" onclick="setStep('${x.id}',${j},'kg',1)">+1</button>
+          <button class="stepb" onclick="setStep('${x.id}',${j},'kg',5)">+5</button>
+          <button class="ck ${s.done?'on':''}" onclick="setDone('${x.id}',${j})">✓</button>
+        </div>
+        <div class="setln" style="margin-top:5px;padding-left:27px">
+          <button class="stepb" onclick="setStep('${x.id}',${j},'reps',-1)">−1</button>
+          <input class="numin" style="max-width:96px" type="number" inputmode="numeric" value="${s.reps??''}" placeholder="${pr}" onchange="setField('${x.id}',${j},'reps',this.value)">
+          <span class="unit">回</span>
+          <button class="stepb" onclick="setStep('${x.id}',${j},'reps',1)">+1</button>
+          <span style="flex:1 1 auto"></span>
+          <span class="muted" style="font-size:11px">${(+s.kg>0&&+s.reps>0)?(Math.round(+s.kg*+s.reps))+'kg':''}</span>
+        </div>
+      </div>`;}).join('')}
+    </div>
     <div class="row" style="margin-top:6px"><button class="minibtn" onclick="setDel('${x.id}')">− セット削除</button><button class="minibtn" style="color:var(--accentD)" onclick="setAdd('${x.id}')">＋ セット追加</button></div>
   </div>`;
 }
@@ -378,6 +441,7 @@ function exCard(x,i){
 function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),items:[],startTs:null,endTs:null,restOn:true,restSec:60,paused:false,accum:0,segStart:null};
   if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=true;
   if(D.plan.paused==null)D.plan.paused=false;if(D.plan.accum==null)D.plan.accum=0;if(D.plan.segStart==null)D.plan.segStart=D.plan.startTs||null;
+  if(D.plan.hideUndone==null)D.plan.hideUndone=true;if(D.plan.review==null)D.plan.review='';
   D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;if(it.dur==null)it.dur='';});}
 function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,dur:'',done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
 function toggleCollapse(id){const x=planItem(id);if(!x)return;x.collapsed=!x.collapsed;save();render();}
@@ -398,6 +462,62 @@ function planItem(id){ensurePlan();return D.plan.items.find(x=>x.id===id);}
 function addPlan(){const n=(document.getElementById('planEx').value||'').trim();if(!n)return;ensurePlan();D.plan.items.push(newItem(n));save();render();}
 function addPlanName(n){ensurePlan();D.plan.items.push(newItem(n));save();render();}
 function planMove(i,d){ensurePlan();const a=D.plan.items;const j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];save();render();}
+/* ---- 長押しドラッグで並べ替え ---- */
+let _drag=null,_lpT=null,_lpFrom=null;
+function _pt(e){return (e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;}
+function dragStart(e,id){
+  if(e.target&&e.target.closest&&e.target.closest('button'))return;
+  if(e.type==='mousedown'&&e.button!==0)return;
+  const card=e.currentTarget.closest('.excard');if(!card)return;
+  const p=_pt(e);_lpFrom={x:p.clientX,y:p.clientY};
+  clearTimeout(_lpT);
+  _lpT=setTimeout(function(){
+    const cards=[].slice.call(document.querySelectorAll('.excard')).map(function(el){
+      const r=el.getBoundingClientRect();return {el:el,id:el.dataset.eid,top:r.top,h:r.height};});
+    _drag={id:id,card:card,y0:_lpFrom.y,dy:0,cards:cards};
+    card.classList.add('dragging');document.body.classList.add('dragmode');
+    try{if(navigator.vibrate)navigator.vibrate(25);}catch(_){}
+  },420);
+}
+function dragMove(e){
+  const p=_pt(e);
+  if(!_drag){if(_lpFrom&&(Math.abs(p.clientY-_lpFrom.y)>8||Math.abs(p.clientX-_lpFrom.x)>8))clearTimeout(_lpT);return;}
+  if(e.cancelable)e.preventDefault();
+  _drag.dy=p.clientY-_drag.y0;
+  _drag.card.style.transform='translateY('+_drag.dy+'px)';
+  const me=_drag.cards.find(function(c){return c.id===_drag.id;});
+  const y=me.top+_drag.dy+me.h/2;
+  _drag.cards.forEach(function(c){
+    if(c.id===_drag.id)return;
+    const mid=c.top+c.h/2;
+    const shift=(mid>me.top&&mid<y)?-me.h:((mid<me.top&&mid>y)?me.h:0);
+    c.el.style.transform=shift?('translateY('+shift+'px)'):'';
+  });
+}
+function dragEnd(){
+  clearTimeout(_lpT);_lpFrom=null;
+  if(!_drag)return;
+  const d=_drag;_drag=null;
+  d.card.classList.remove('dragging');document.body.classList.remove('dragmode');
+  d.cards.forEach(function(c){c.el.style.transform='';});
+  const me=d.cards.find(function(c){return c.id===d.id;});
+  const y=me.top+d.dy+me.h/2;
+  const others=d.cards.filter(function(c){return c.id!==d.id;});
+  const before=others.find(function(c){return y<c.top+c.h/2;});
+  ensurePlan();
+  const a=D.plan.items;const from=a.findIndex(function(x){return x.id===d.id;});
+  if(from<0){render();return;}
+  const it=a.splice(from,1)[0];
+  let at=before?a.findIndex(function(x){return x.id===before.id;}):-1;
+  if(at<0)at=a.length;
+  a.splice(at,0,it);save();render();
+}
+document.addEventListener('touchmove',dragMove,{passive:false});
+document.addEventListener('touchend',dragEnd);
+document.addEventListener('touchcancel',dragEnd);
+document.addEventListener('mousemove',dragMove);
+document.addEventListener('mouseup',dragEnd);
+document.addEventListener('scroll',function(){if(!_drag)clearTimeout(_lpT);},true);
 function planRemove(id){ensurePlan();D.plan.items=D.plan.items.filter(x=>x.id!==id);save();render();}
 function loadPlanFromSelect(){const d=document.getElementById('planLoad').value;if(d)loadPlanFromDateStr(d);}
 function loadPlanFromDateStr(ds){ensurePlan();const seen=[],items=[];
@@ -441,7 +561,39 @@ function sessCtrl(){const p=D.plan;
   return `<div class="row" style="justify-content:space-between;align-items:center">
     <span>✅ 今日の合計 <b>${fmtMin(p.accum||0)}</b>（実施分のみで再集計済み）</span>
     <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>
-    <button class="btn sm" style="width:100%;margin-top:8px" onclick="askCooldown()">🐉 今日に合うストレッチを提案</button>`;}
+    ${reviewBlock()}
+    ${dailyNoteCard('📝 今日のひとこと・感想（トレの記録に添える）')}
+    <button class="btn sm" style="width:100%;margin-top:2px" onclick="askCooldown()">🐉 今日に合うストレッチを提案</button>`;}
+/* ---- トレ終了後のAI総評 ---- */
+function itemPerformed(it){return it.noWeight?!!it.done:(it.sets||[]).some(s=>s.done);}
+function toggleHideUndone(){ensurePlan();D.plan.hideUndone=(D.plan.hideUndone===false);save();render();}
+function reviewBlock(){const p=D.plan;
+  if(window._reviewBusy)return `<div class="card" style="margin-top:8px;background:var(--card2)"><b>🐉 今日の総評</b><div class="muted" style="margin-top:4px">まとめてるところ…</div></div>`;
+  if(p.review)return `<div class="card" style="margin-top:8px;background:var(--card2)">
+    <div class="row" style="justify-content:space-between;align-items:center"><b>🐉 今日の総評</b>
+      <button class="minibtn" onclick="makeReview(true)">↻ 作り直す</button></div>
+    <div style="font-size:13px;line-height:1.7;margin-top:6px">${mdToHtml(p.review)}</div></div>`;
+  return `<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="makeReview(true)">🐉 今日の総評をAIに書いてもらう</button>`;}
+function sessSummaryText(){ensurePlan();const p=D.plan;const t=window._itemTimes||computeItemTimes();
+  const done=(p.items||[]).filter(itemPerformed);
+  const lines=done.map(it=>{
+    if(it.noWeight)return `・${it.name}（重量なし${it.dur?'／'+it.dur+'分':''}）${it.memo?' メモ:'+it.memo:''}`;
+    const ss=(it.sets||[]).filter(s=>s.done);
+    const vol=itemVolDone(it);const mx=Math.max(0,...ss.map(s=>+s.kg||0));
+    return `・${it.name}：${ss.length}セット（${ss.map(s=>`${s.kg||'-'}kg×${s.reps||'-'}回`).join(', ')}）最大${mx}kg／ボリューム${vol}kg${t[it.id]?`／所要${fmtMin(t[it.id])}`:''}${it.memo?' メモ:'+it.memo:''}`;});
+  const totalVol=done.reduce((a,it)=>a+itemVolDone(it),0);
+  const skipped=(p.items||[]).filter(it=>!itemPerformed(it)).map(it=>it.name);
+  return `【今日のトレ実績】運動時間 ${fmtMin(p.accum||0)}／総ボリューム ${totalVol}kg\n${lines.join('\n')||'（実施記録なし）'}${skipped.length?'\n（予定したがやらなかった種目：'+skipped.join('・')+'）':''}`;}
+async function makeReview(force){ensurePlan();const p=D.plan;
+  if(!aiKey())return force?alert('先にコーチを開眼（設定でAPIキー）してね'):null;
+  if(!(p.items||[]).some(itemPerformed))return;
+  if(p.review&&!force)return;
+  window._reviewBusy=true;render();
+  const sys=aiSystem()+`\n【今回のタスク】トレ終了直後の総評。3〜5行で簡潔に。①今日の要点（部位バランス・ボリューム・前回比）②よかった点1つ③次回の具体的な一手（種目/重量/回数のどれかを数字で）。前置き・一般論・カロリー論は書かない。NOTE[]やMEMO:は使わない。`;
+  try{const ans=await aiCallRetry([{role:'user',content:sessSummaryText()+'\n\n上のトレを総評して。'}],{system:sys,model:aiModelData(),max_tokens:700});
+    p.review=(ans||'').replace(/^\s*MEMO[:：].*$/gmi,'').trim();}
+  catch(e){p.review='⚠️ 総評を作れませんでした（'+e.message+'）\n（↻ 作り直す でもう一度試せます）';}
+  window._reviewBusy=false;save();render();}
 function sessBar(){const p=D.plan;const pauseBtn=p.paused
     ?`<button class="btn sm" style="width:auto;padding:8px 14px" onclick="sessResume()">▶ 再開</button>`
     :`<button class="btn gray sm" style="width:auto;padding:8px 12px" onclick="sessPause()">⏸</button>`;
@@ -464,8 +616,10 @@ function sessEnd(){ensurePlan();if(!D.plan.startTs)return;const p=D.plan;
   D.sessions.push({id:uid(),date:today(),startTs:D.plan.startTs,endTs:D.plan.endTs,
     totalSec:Math.round(D.plan.accum||0),
     items:D.plan.items.filter(it=>it.noWeight?it.done:(it.sets||[]).some(s=>s.done)).map(it=>({name:it.name,sec:Math.round(t[it.id]||0)}))});
-  clearInterval(window._restInt);save();render();}
-function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.paused=false;D.plan.accum=0;D.plan.segStart=null;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;it.collapsed=false;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
+  D.plan.hideUndone=true;D.plan.review='';
+  clearInterval(window._restInt);save();render();
+  if(aiKey())makeReview(false);}
+function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.paused=false;D.plan.accum=0;D.plan.segStart=null;D.plan.review='';D.plan.hideUndone=true;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;it.collapsed=false;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
 function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
 function setRestText(t){document.querySelectorAll('.restDisp').forEach(el=>el.textContent=t);}
 function skipRest(){clearInterval(window._restInt);window._restLeft=0;setRestText('');}
@@ -487,7 +641,8 @@ function vCalendar(){const now=new Date();if(!_calM)_calM={y:now.getFullYear(),m
   for(let d=1;d<=days;d++){const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const hw=wd.has(ds),hm=md.has(ds);
     cells+=`<button class="calc ${hw?'has':''} ${ds===today()?'tod':''}" onclick="calPick('${ds}')">${d}${hw?'<span class="dot"></span>':''}${hm?'<span class="dot2"></span>':''}</button>`;}
-  return `<h2 style="margin-top:14px">カレンダー</h2>
+  return `${todayBlock()}
+  <h2 style="margin-top:18px">カレンダー</h2>
   <div class="banner"><span style="color:var(--accentD)">●</span> 運動　<span style="color:var(--accent2)">●</span> 食事　日をタップで運動・食事・体の記録をまとめて振り返り。</div>
   <div class="card">
     <div class="row" style="justify-content:space-between;align-items:center">
@@ -508,7 +663,7 @@ function calPick(ds){const box=document.getElementById('calDay');if(!box)return;
     ${sessHtml}${ws.length?ws.map(wItem).join(''):'<div class="muted">記録なし</div>'}
     <h3>🍽️ 食事</h3>
     ${ms.length?ms.map(calMeal).join(''):'<div class="muted">記録なし</div>'}
-    ${cond.length||meas.length?`<h3>📏 からだ</h3>${meas.map(x=>`<div class="muted">採寸 ${MFIELDS.filter(([k])=>x[k]!=null).map(([k,l])=>l+' '+x[k]).join(' / ')||'—'}</div>`).join('')}${cond.map(c=>`<div class="muted">${c.period?'🩸 ':''}${esc(c.mood||'')}${c.memo?' / '+esc(c.memo):''}</div>`).join('')}`:''}
+    ${cond.length||meas.length?`<h3>📏 からだ</h3>${meas.map(x=>`<div class="muted">採寸 ${MFIELDS.filter(([k])=>x[k]!=null).map(([k,l,u])=>l+' '+x[k]+u).join(' / ')||'—'}</div>`).join('')}${cond.map(c=>`<div class="muted">${c.period?'🩸 ':''}${esc(c.mood||'')}${c.memo?' / '+esc(c.memo):''}</div>`).join('')}`:''}
   </div>`;
   loadCalThumbs(box);}
 function calMeal(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
@@ -782,7 +937,7 @@ async function analyzeSupp(){const name=(document.getElementById('supName').valu
   }catch(e){if(box)box.textContent='⚠️ '+e.message;}}
 
 /* ============ からだ（採寸 / 体調・周期 / グラフ）============ */
-const MFIELDS=[['waist','ウエスト'],['hip','ヒップ'],['thigh','太もも'],['arm','二の腕'],['bust','バスト'],['weight','体重kg']];
+const MFIELDS=[['waist','ウエスト','cm'],['hip','ヒップ','cm'],['thigh','太もも','cm'],['arm','二の腕','cm'],['bust','バスト','cm'],['weight','体重','kg']];
 function vKarada(){
   const s=sub.kbody||'採寸';
   return `<div class="subtabs" style="flex-wrap:wrap">
@@ -857,8 +1012,8 @@ function vMeasure(){
     <h3 style="margin-top:0">採寸を記録</h3>
     <label>日付</label><input id="msDate" type="date" value="${today()}">
     <div class="row" style="margin-top:4px">
-      ${MFIELDS.map(([k,l])=>`<div style="flex:1 1 30%"><label style="margin:2px 0">${l}</label>
-        <input id="ms_${k}" type="number" inputmode="decimal" placeholder="cm"></div>`).join('')}
+      ${MFIELDS.map(([k,l,u])=>`<div style="flex:1 1 30%"><label style="margin:2px 0">${l}（${u}）</label>
+        <input id="ms_${k}" type="number" inputmode="decimal" placeholder="${u}"></div>`).join('')}
     </div>
     <label>メモ</label><input id="msMemo" placeholder="例：生理前でむくみ気味">
     <button class="btn" style="margin-top:10px" onclick="saveMeasure()">記録する</button>
@@ -867,7 +1022,7 @@ function vMeasure(){
   ${D.measures.slice().reverse().map(m=>`<div class="card" style="padding:11px 14px">
     <div class="row" style="justify-content:space-between"><b>${fmtD(m.date)}</b>
     <button class="del" onclick="delItem('measures','${m.id}')">削除</button></div>
-    <div class="muted">${MFIELDS.filter(([k])=>m[k]).map(([k,l])=>`${l} ${m[k]}`).join(' / ')||'—'}</div>
+    <div class="muted">${MFIELDS.filter(([k])=>m[k]).map(([k,l,u])=>`${l} ${m[k]}${u}`).join(' / ')||'—'}</div>
     ${m.memo?`<div style="font-size:13px">📝 ${esc(m.memo)}</div>`:''}</div>`).join('')||'<div class="muted">—</div>'}`;
 }
 function saveMeasure(){const o={id:uid(),date:document.getElementById('msDate').value||today(),memo:document.getElementById('msMemo').value.trim()};
@@ -1047,7 +1202,7 @@ function aiContext(){const L=[];
   const rw=D.workouts.slice(-12);if(rw.length)L.push('◾最近のトレ: '+rw.map(w=>`${w.date} ${w.name}[${(w.sets||[]).map(fmtSet).join(',')||w.memo||'-'}]`).join(' / '));
   const rr=(D.runs||[]).slice(-4);if(rr.length)L.push('◾最近のラン: '+rr.map(r=>`${r.date} ${r.km}km/${r.min}分${r.memo?'('+r.memo+')':''}`).join(' / '));
   const rm=D.meals.slice(-10);if(rm.length)L.push('◾最近の食事: '+rm.map(m=>`${m.date}${m.type}:${m.memo}(${m.level})`).join(' / '));
-  const lm=D.measures.slice(-1)[0];if(lm)L.push('◾最新の採寸/体重: '+MFIELDS.filter(([k])=>lm[k]!=null).map(([k,l])=>l+lm[k]).join(' '));
+  const lm=D.measures.slice(-1)[0];if(lm)L.push('◾最新の採寸/体重: '+MFIELDS.filter(([k])=>lm[k]!=null).map(([k,l,u])=>l+lm[k]+u).join(' '));
   const pn=(D.photoNotes||[]).slice(-4);if(pn.length)L.push('◾写真の変化メモ(画像は非送信): '+pn.map(p=>`${p.date} ${(p.tags||[]).join('・')}${p.note?' '+p.note:''}`).join(' / '));
   const rc=D.conditions.slice(-5);if(rc.length)L.push('◾最近の体調/生理: '+rc.map(c=>`${c.date}${c.period?'🩸':''}${c.mood||''}${c.memo?'('+c.memo+')':''}`).join(' / '));
   const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
@@ -1066,7 +1221,24 @@ NOTE[種目名]: 手順や注意点の本文（改行可）
 ◆これらの専用行は画面に表示されないので、本文側に重複して長々書かない。該当しない普通の相談では付けない。
 例）ユーザー「キックバックのやり方、メモに書いといて」→ 本文「フォームのメモを残しておきますね。」＋最後に「NOTE[キックバック]: 1)肘を固定し前腕を後方へ 2)収縮位で1秒 注意)反動を使わない」
 ${focusLine}【目標(理想の体型)】${p.goal||'（未設定）'}
-${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${aiContext()}`;}
+${D.coachMemo?'【覚えておいてほしいこと（本人が明示）】\n'+D.coachMemo+'\n':''}${coachLogText()}${aiContext()}`;}
+/* ---- コーチの記憶（各回答を自動要約して蓄積し、毎回渡す）---- */
+const COACHLOG_MAX=40, COACHLOG_CHARS=2600;
+function coachLogText(){const L=(D.coachLog||[]);if(!L.length)return '';
+  return '【これまでの相談の要点（自動記録・古い順）】\n'+L.map(o=>`・${fmtD(o.date)}${o.thread&&o.thread!=='総合'?'['+o.thread+']':''} ${o.text}`).join('\n')+'\n（同じ助言の繰り返しは避け、前回からの続きとして答える）\n';}
+function coachLogPush(text,thread){if(!text)return;
+  D.coachLog=D.coachLog||[];
+  D.coachLog.push({date:today(),thread:thread||'総合',text:String(text).replace(/\s+/g,' ').trim().slice(0,160)});
+  while(D.coachLog.length>COACHLOG_MAX)D.coachLog.shift();
+  while(D.coachLog.reduce((a,o)=>a+o.text.length,0)>COACHLOG_CHARS&&D.coachLog.length>4)D.coachLog.shift();}
+async function autoSummarize(q,a,thread){
+  if(!aiKey())return;
+  try{const s=await aiCall([{role:'user',content:`次のコーチ相談を、あとで思い出すための1文メモにして。60字以内・体言止め・具体（種目名/数値/決めたこと）を必ず残す。前置き不要、メモ本文のみ出力。\n\n【質問】${(q||'').slice(0,600)}\n【回答】${(a||'').slice(0,1400)}`}],
+    {model:aiModelData(),max_tokens:120});
+    coachLogPush(s,thread);save();}
+  catch(e){/* 要約に失敗しても本体には影響させない */}}
+function clearCoachLog(){if(confirm('コーチの自動記憶（要点メモ）を全部消す？')){D.coachLog=[];save();render();}}
+function delCoachLog(i){D.coachLog.splice(i,1);save();render();}
 function curThread(){window._thread=window._thread||'総合';D.aiThreads=D.aiThreads||{};if(!Array.isArray(D.aiThreads[window._thread]))D.aiThreads[window._thread]=[];return D.aiThreads[window._thread];}
 async function aiCallRetry(msgs,opts){let last;for(let i=0;i<2;i++){try{return await aiCall(msgs,opts);}catch(e){last=e;if(/通信エラー|タイムアウト/.test(e.message)&&i<1){await new Promise(r=>setTimeout(r,1200));continue;}throw e;}}throw last;}
 async function runCoach(){window._coachBusy=true;render();
@@ -1090,7 +1262,9 @@ async function runCoach(){window._coachBusy=true;render();
     if(saved.length){D.coachMemo=(D.coachMemo?D.coachMemo+'\n':'')+saved.map(s=>'・'+s).join('\n');}
     const allSaved=notes.concat(saved.length?['覚えておくメモ']:[]);
     const savedNote=allSaved.length?('\n\n📌 自動保存: '+allSaved.join(' / ')):'';
-    thread.push({role:'assistant',content:note+ans+savedNote});}
+    thread.push({role:'assistant',content:note+ans+savedNote});
+    const lastQ=(msgs.filter(m=>m.role==='user').slice(-1)[0]||{}).content||'';
+    autoSummarize(lastQ,ans,window._thread);}
   catch(e){thread.push({role:'assistant',content:'⚠️ '+e.message+(/通信|タイムアウト|Failed/i.test(e.message)?'\n（通信が不安定かも。もう一度送ると通ることが多いです）':'')});}
   window._coachBusy=false;save();render();}
 function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
@@ -1137,6 +1311,13 @@ function vCoach(){
      <textarea id="coachMemo" placeholder="コーチに覚えておいてほしいことを書く" style="min-height:70px;margin-top:6px">${esc(D.coachMemo||'')}</textarea>
      <button class="btn sm ghost" style="width:100%;margin-top:6px" onclick="saveCoachMemo()">保存</button>
    </details>
+   <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🧠 コーチの自動記憶（${(D.coachLog||[]).length}件）</summary>
+     <div class="muted" style="font-size:12px;margin-top:6px">相談するたびに、要点をAIが1文にまとめて自動で貯めています（毎回コーチに渡される＝いちいち覚えさせなくてよい）。最新${COACHLOG_MAX}件まで、古いものから自動で消えます。</div>
+     ${(D.coachLog||[]).length?(D.coachLog||[]).slice().reverse().map((o,ri)=>{const i=(D.coachLog.length-1-ri);return `<div class="item"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:6px">
+       <span style="flex:1;font-size:13px"><span class="muted">${fmtD(o.date)}${o.thread&&o.thread!=='総合'?' ['+esc(o.thread)+']':''}</span> ${esc(o.text)}</span>
+       <button class="del" onclick="delCoachLog(${i})">削除</button></div></div>`;}).join(''):'<div class="muted" style="margin-top:6px">まだなし。コーチに相談すると自動で貯まります。</div>'}
+     ${(D.coachLog||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="clearCoachLog()">記憶を全部消す</button>`:''}
+   </details>
    <details class="card" style="margin-top:8px"${Object.keys(D.exerciseNotes||{}).length?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📒 種目メモ（コーチが種目ごとに保存した内容）</summary>
      ${Object.keys(D.exerciseNotes||{}).length?Object.keys(D.exerciseNotes).map(nm=>`
        <div class="item"><div class="row" style="justify-content:space-between;align-items:center"><b>🏋️ ${esc(nm)}</b>
@@ -1167,6 +1348,286 @@ async function aiTest(){const btn=document.getElementById('aiTestBtn');const old
   try{const r=await aiCall([{role:'user',content:'接続テストです。「OK」とだけ返してください。'}],{model:aiModelData(),max_tokens:20});
     alert('接続成功 ✅\n応答: '+r);}catch(e){alert('接続失敗 ❌\n'+e.message);}
   if(btn)btn.textContent=old||'接続テスト';}
+/* ============ 解剖ページ ============
+   図＝オリジナルSVG（イメージ補助）／事実（起始・停止・作用・支配神経）＝テキストが正。
+   市販の解剖アトラス等の著作物は一切使用していない。 */
+const MUS={
+ trapU:{jp:'僧帽筋 上部',en:'Trapezius (upper)',o:'外後頭隆起・項靭帯・C1〜C7棘突起',i:'鎖骨外側1/3',a:'肩甲骨の挙上・上方回旋、頸部の伸展',n:'副神経（XI）・頸神経叢（C3〜C4）',mk:[303,68],
+   d:['M301,62 L319,62 L343,73 L277,73 Z']},
+ trapM:{jp:'僧帽筋 中部',en:'Trapezius (middle)',o:'C7〜T3棘突起',i:'肩峰・肩甲棘',a:'肩甲骨の内転（後退）',n:'副神経（XI）',mk:[298,80],
+   d:['M283,74 L337,74 L330,112 L310,120 L290,112 Z']},
+ rhomboid:{jp:'菱形筋',en:'Rhomboid major / minor',o:'C7〜T5棘突起・項靭帯',i:'肩甲骨内側縁',a:'肩甲骨の内転・下方回旋・挙上',n:'肩甲背神経（C4〜C5）',mk:[328,104],
+   d:['M296,84 L324,84 L320,110 L300,110 Z']},
+ lat:{jp:'広背筋',en:'Latissimus dorsi',o:'T7〜L5棘突起・胸腰筋膜・腸骨稜後部・第9〜12肋骨・肩甲骨下角',i:'上腕骨 小結節稜（結節間溝の底）',a:'肩関節の伸展・内転・内旋',n:'胸背神経（C6〜C8）',mk:[286,144],
+   d:['M288,102 C278,120 280,150 289,174 L306,168 L306,112 L296,102 Z','M332,102 C342,120 340,150 331,174 L314,168 L314,112 L324,102 Z']},
+ erector:{jp:'脊柱起立筋',en:'Erector spinae',o:'仙骨後面・腸骨稜・腰椎棘突起（総腱膜）',i:'肋骨角・胸腰椎の横突起/棘突起・乳様突起',a:'脊柱の伸展・側屈、前屈時の制動',n:'脊髄神経後枝',mk:[310,152],
+   d:['M304,108 L316,108 L316,196 L304,196 Z']},
+ deltA:{jp:'三角筋 前部',en:'Deltoid (anterior)',o:'鎖骨外側1/3の前縁',i:'上腕骨 三角筋粗面',a:'肩関節の屈曲・内旋・水平内転',n:'腋窩神経（C5〜C6）',mk:[57,86],
+   d:['M65,70 C55,72 48,80 47,95 C47,104 54,108 61,105 C66,100 67,84 65,70 Z','M135,70 C145,72 152,80 153,95 C153,104 146,108 139,105 C134,100 133,84 135,70 Z']},
+ deltM:{jp:'三角筋 中部',en:'Deltoid (lateral)',o:'肩峰',i:'上腕骨 三角筋粗面',a:'肩関節の外転（約15°以降の主動作筋）',n:'腋窩神経（C5〜C6）',mk:[50,100],
+   d:['M65,70 C55,72 48,80 47,95 C47,104 54,108 61,105 C66,100 67,84 65,70 Z','M135,70 C145,72 152,80 153,95 C153,104 146,108 139,105 C134,100 133,84 135,70 Z']},
+ deltP:{jp:'三角筋 後部',en:'Deltoid (posterior)',o:'肩甲棘の下縁',i:'上腕骨 三角筋粗面',a:'肩関節の伸展・外旋・水平外転',n:'腋窩神経（C5〜C6）',mk:[262,82],
+   d:['M275,70 C265,72 258,80 257,95 C257,104 264,108 271,105 C276,100 277,84 275,70 Z','M345,70 C355,72 362,80 363,95 C363,104 356,108 349,105 C344,100 343,84 345,70 Z']},
+ pec:{jp:'大胸筋',en:'Pectoralis major',o:'鎖骨内側1/2（鎖骨部）／胸骨・第2〜6肋軟骨（胸肋部）／腹直筋鞘前葉（腹部）',i:'上腕骨 大結節稜',a:'肩関節の内転・内旋・水平内転（鎖骨部は屈曲、腹部は伸展に働く）',n:'内側・外側胸筋神経（C5〜T1）',mk:[80,92],
+   d:['M99,76 L75,74 C66,79 65,94 70,105 C79,113 93,111 99,104 Z','M101,76 L125,74 C134,79 135,94 130,105 C121,113 107,111 101,104 Z']},
+ biceps:{jp:'上腕二頭筋',en:'Biceps brachii',o:'長頭＝肩甲骨 関節上結節／短頭＝烏口突起',i:'橈骨粗面・上腕二頭筋腱膜',a:'肘関節の屈曲、前腕の回外、肩関節屈曲の補助',n:'筋皮神経（C5〜C6）',mk:[52,112],
+   d:['M49,90 L62,93 L58,133 L46,131 Z','M151,90 L138,93 L142,133 L154,131 Z']},
+ triceps:{jp:'上腕三頭筋',en:'Triceps brachii',o:'長頭＝肩甲骨 関節下結節／外側頭・内側頭＝上腕骨後面（橈骨神経溝の上外側・下内側）',i:'尺骨 肘頭',a:'肘関節の伸展（長頭は肩関節の伸展・内転にも作用）',n:'橈骨神経（C6〜C8）',mk:[262,112],
+   d:['M259,90 L272,93 L268,133 L256,131 Z','M361,90 L348,93 L352,133 L364,131 Z']},
+ forearm:{jp:'前腕屈筋群',en:'Forearm flexors',o:'上腕骨 内側上顆（共通屈筋起始）',i:'手根骨・中手骨・指骨',a:'手関節と手指の屈曲（＝握力）',n:'正中神経・尺骨神経（C6〜T1）',mk:[49,168],
+   d:['M43,143 L57,146 L55,192 L45,190 Z','M157,143 L143,146 L145,192 L155,190 Z']},
+ rectus:{jp:'腹直筋',en:'Rectus abdominis',o:'恥骨結合・恥骨稜',i:'第5〜7肋軟骨・剣状突起',a:'体幹の屈曲、骨盤の後傾、腹圧の上昇',n:'肋間神経（T7〜T12）',mk:[100,146],
+   d:['M89,106 L111,106 L110,180 C105,189 95,189 90,180 Z']},
+ oblique:{jp:'腹斜筋（外・内）',en:'External / internal oblique',o:'外＝第5〜12肋骨外面／内＝胸腰筋膜・腸骨稜・鼠径靭帯',i:'外＝腸骨稜・腹直筋鞘／内＝第10〜12肋骨・腹直筋鞘',a:'体幹の回旋と側屈（外腹斜筋は対側回旋、内腹斜筋は同側回旋）',n:'肋間神経（T7〜T12）・腸骨下腹/腸骨鼠径神経（L1）',mk:[81,152],
+   d:['M78,116 L88,113 L89,182 L80,176 Z','M122,116 L112,113 L111,182 L120,176 Z']},
+ gluteMax:{jp:'大臀筋',en:'Gluteus maximus',o:'腸骨翼外面（後臀筋線の後方）・仙骨/尾骨後面・仙結節靭帯',i:'腸脛靭帯・大腿骨の臀筋粗面',a:'股関節の伸展・外旋（上部線維は外転）',n:'下臀神経（L5〜S2）',mk:[310,216],
+   d:['M284,194 C282,220 292,242 310,242 C328,242 338,220 336,194 Z']},
+ gluteMed:{jp:'中臀筋',en:'Gluteus medius',o:'腸骨翼外面（前・後臀筋線の間）',i:'大腿骨 大転子の外側面',a:'股関節の外転（前部は内旋・後部は外旋）。片脚立位で骨盤を水平に保つ',n:'上臀神経（L4〜S1）',mk:[281,192],
+   d:['M280,186 C272,196 274,212 282,216 L292,200 Z','M340,186 C348,196 346,212 338,216 L328,200 Z']},
+ quad:{jp:'大腿四頭筋',en:'Quadriceps femoris',o:'大腿直筋＝下前腸骨棘／広筋群＝大腿骨前面・粗線',i:'膝蓋骨を介して脛骨粗面（膝蓋靭帯）',a:'膝関節の伸展（大腿直筋は股関節屈曲にも作用）',n:'大腿神経（L2〜L4）',mk:[84,248],
+   d:['M79,208 L98,208 L96,286 L78,284 Z','M121,208 L102,208 L104,286 L122,284 Z']},
+ adductor:{jp:'内転筋群',en:'Adductors',o:'恥骨下枝・坐骨枝（大内転筋の一部は坐骨結節）',i:'大腿骨 粗線・内転筋結節',a:'股関節の内転（屈曲/伸展の補助、骨盤の安定）',n:'閉鎖神経（L2〜L4）／大内転筋の一部は坐骨神経',mk:[100,238],
+   d:['M92,210 L99,210 L98,264 L91,260 Z','M108,210 L101,210 L102,264 L109,260 Z']},
+ ham:{jp:'ハムストリングス',en:'Hamstrings',o:'坐骨結節（大腿二頭筋短頭は大腿骨粗線）',i:'大腿二頭筋＝腓骨頭／半腱様筋＝脛骨の鵞足／半膜様筋＝脛骨内側顆',a:'股関節の伸展、膝関節の屈曲、下腿の回旋',n:'坐骨神経 脛骨神経部（L5〜S2）／短頭は総腓骨神経部',mk:[297,264],
+   d:['M289,244 L308,244 L306,288 L287,286 Z','M331,244 L312,244 L314,288 L333,286 Z']},
+ calf:{jp:'下腿三頭筋',en:'Triceps surae',o:'腓腹筋＝大腿骨の内側/外側顆／ヒラメ筋＝腓骨頭・脛骨のヒラメ筋線',i:'踵骨隆起（アキレス腱）',a:'足関節の底屈（腓腹筋は膝関節の屈曲にも作用）',n:'脛骨神経（S1〜S2）',mk:[296,318],
+   d:['M290,296 L305,296 L302,342 L292,342 Z','M330,296 L315,296 L318,342 L328,342 Z']}
+};
+const ANAT_BASE=[
+ '<ellipse cx="100" cy="30" rx="16" ry="20"/>','<path d="M91,45 h18 v18 h-18 z"/>',
+ '<path d="M64,70 L136,70 L131,122 L124,176 L122,206 L78,206 L76,176 L69,122 Z"/>',
+ '<path d="M64,70 L47,76 L42,140 L58,143 L66,92 Z"/>','<path d="M42,140 L58,143 L55,200 L43,198 Z"/>','<ellipse cx="49" cy="209" rx="8" ry="10"/>',
+ '<path d="M136,70 L153,76 L158,140 L142,143 L134,92 Z"/>','<path d="M158,140 L142,143 L145,200 L157,198 Z"/>','<ellipse cx="151" cy="209" rx="8" ry="10"/>',
+ '<path d="M77,204 L99,204 L97,290 L75,288 Z"/>','<path d="M123,204 L101,204 L103,290 L125,288 Z"/>',
+ '<path d="M76,290 L97,290 L94,356 L80,356 Z"/>','<path d="M124,290 L103,290 L106,356 L120,356 Z"/>',
+ '<path d="M80,356 L94,356 L96,368 L74,368 Z"/>','<path d="M120,356 L106,356 L104,368 L126,368 Z"/>'
+];
+function anatBaseG(dx){return `<g transform="translate(${dx},0)" fill="var(--card2)" stroke="var(--line)" stroke-width="1.2">${ANAT_BASE.join('')}</g>`;}
+function anatSvg(prim,sec){
+  const num={};prim.forEach((k,i)=>num[k]=i+1);sec.forEach((k,i)=>{if(!num[k])num[k]=prim.length+i+1;});
+  let faint='',hot='',marks='';
+  Object.keys(MUS).forEach(k=>{const m=MUS[k];const paths=(m.d||[]).map(dd=>`<path d="${dd}"/>`).join('');
+    if(prim.indexOf(k)>=0)hot+=`<g fill="var(--accent)" stroke="var(--accentD)" stroke-width="1.2">${paths}</g>`;
+    else if(sec.indexOf(k)>=0)hot+=`<g fill="#ffd39a" stroke="var(--accent2)" stroke-width="1">${paths}</g>`;
+    else faint+=paths;});
+  const placed=[];
+  prim.concat(sec).forEach(k=>{const m=MUS[k];if(!m||!m.mk)return;
+    let x=m.mk[0],y=m.mk[1],guard=0;
+    // 番号バッジ同士が重ならないよう、ぶつかったら少しずつ下へ逃がす
+    while(placed.some(p=>Math.abs(p.x-x)<23&&Math.abs(p.y-y)<23)&&guard++<12)y+=23;
+    placed.push({x,y});
+    marks+=`<g><circle cx="${x}" cy="${y}" r="10" fill="var(--ink)" stroke="#fff" stroke-width="1.8"/>
+      <text x="${x}" y="${y+4.1}" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" font-family="-apple-system,Helvetica,sans-serif">${num[k]}</text></g>`;});
+  return `<svg viewBox="0 0 420 392" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto">
+    ${anatBaseG(0)}${anatBaseG(210)}
+    <g fill="#dde4ec" stroke="#c9d3dd" stroke-width=".8">${faint}</g>
+    ${hot}${marks}
+    <text x="100" y="388" text-anchor="middle" font-size="13" font-weight="800" fill="var(--sub)" font-family="-apple-system,sans-serif">ANTERIOR ・ 前面</text>
+    <text x="310" y="388" text-anchor="middle" font-size="13" font-weight="800" fill="var(--sub)" font-family="-apple-system,sans-serif">POSTERIOR ・ 背面</text>
+  </svg>`;}
+const EX={
+ 'ラットプルダウン':{en:'LAT PULLDOWN',cat:'背中｜引く（垂直）',p:['lat'],s:['biceps','rhomboid','trapM','deltP'],
+  cue:['胸を斜め上に張ってから引く。順番は「肩甲骨の下制 → 内転 → 肘が下りる」。肘から先は"フック"として引っ掛けるだけ','バーは鎖骨の手前まで。引ききるより「肘を腰のポケットに差し込む」イメージ','戻す時は肩がすくむ直前で止める＝広背筋の張力が抜けない','グリップは肩幅の1.2〜1.5倍。握り込むほど前腕・二頭筋に逃げる'],
+  ng:['体を大きく後傾させて反動で引く → 脊柱起立筋の運動になる','肩がすくんだまま引く → 僧帽筋上部が優位','バーを首の後ろに引く → 肩関節外旋位で不安定、頸椎にも不利']},
+ 'チンニング':{en:'PULL-UP / CHIN-UP',cat:'背中｜引く（垂直・自重）',p:['lat'],s:['biceps','rhomboid','trapM','rectus'],
+  cue:['ぶら下がった時点で肩甲骨を軽く下制（デッドハングでゆるみきらない）','肋骨を締めて腹圧を保つと、腰の反りが減って広背筋に乗る','逆手（chin-up）は上腕二頭筋の関与が増える。背中狙いなら順手か肩幅'],
+  ng:['勢いで身体を振る（キッピング）','肘だけ曲げて肩甲骨が動かない']},
+ 'シーテッドロー':{en:'SEATED ROW',cat:'背中｜引く（水平）',p:['lat','rhomboid'],s:['trapM','biceps','deltP','erector'],
+  cue:['骨盤を立てて座り、みぞおちをバーに近づける','肘は体側をこするラインで後方へ。手首は返さない','引ききった位置で1秒止めて肩甲骨を寄せる'],
+  ng:['体幹を大きく前後に振る','肩がすくんで僧帽筋上部が主役になる']},
+ 'ベントオーバーロー':{en:'BENT-OVER ROW',cat:'背中｜引く（水平・フリー）',p:['lat','rhomboid'],s:['trapM','erector','biceps','ham'],
+  cue:['股関節から折って背中はニュートラル。膝は軽く曲げる','へそに向かって引く（脇を締める）と広背筋、乳頭ラインなら僧帽筋中部・菱形筋が優位','腹圧を入れて腰椎を守る'],
+  ng:['腰が丸まる → 椎間板への剪断力が増える','起き上がりながら引く']},
+ 'ベンチプレス':{en:'BENCH PRESS',cat:'胸｜押す（水平）',p:['pec'],s:['triceps','deltA'],
+  cue:['肩甲骨を下制＋内転して固定。胸郭を高く保つ','バーは乳頭〜みぞおちのライン。前腕は常に床と垂直','肘は体幹に対して45〜60°（真横に開かない）'],
+  ng:['肩がすくんで肩甲骨が浮く → 肩峰下インピンジメントのリスク','ボトムで胸に落として反動を使う']},
+ 'チェストプレス':{en:'CHEST PRESS',cat:'胸｜押す（マシン）',p:['pec'],s:['triceps','deltA'],
+  cue:['シート高はグリップが乳頭の高さに来る位置','押し切りで肩を前に出さない（肩甲骨は寄せたまま）','戻しは肘が体幹面より少し後ろまで'],
+  ng:['肩をすくめる','肘を真横に張りすぎる']},
+ 'ダンベルフライ':{en:'DUMBBELL FLY',cat:'胸｜内転（単関節）',p:['pec'],s:['deltA'],
+  cue:['肘は軽く曲げた角度を最初から最後まで固定（"抱きしめる"軌道）','ストレッチ位で止めすぎない。肩前面に痛みが出る手前まで'],
+  ng:['肘が伸び切って肩関節にモーメントが集中','重量を上げてプレス動作になる']},
+ 'ショルダープレス':{en:'SHOULDER PRESS',cat:'肩｜押す（垂直）',p:['deltA','deltM'],s:['triceps','trapU'],
+  cue:['肋骨を締めて腰を反らせない（腹圧を保つ）','前腕は床と垂直。バーは顔の前を通す','挙上に伴う肩甲骨の上方回旋は自然な動き＝すくみと混同しない'],
+  ng:['腰椎で反ってプレスする','肘を真横に開ききって肩前面が痛む']},
+ 'サイドレイズ':{en:'LATERAL RAISE',cat:'肩｜外転（単関節）',p:['deltM'],s:['trapU','deltA'],
+  cue:['小指をわずかに上げる程度の内旋で肩峰下スペースを確保','肩の高さまで。それ以上は僧帽筋の仕事','肘・手首の高さを揃えて、肘から持ち上げる'],
+  ng:['反動で上げる','肩をすくめる（僧帽筋上部に移る）']},
+ 'リアレイズ':{en:'REAR DELT RAISE',cat:'肩｜水平外転',p:['deltP'],s:['rhomboid','trapM'],
+  cue:['胸椎を軽く前傾させ、肘を外へ広げる（後方へ引かない）','肩甲骨を寄せすぎると菱形筋の運動になる。三角筋後部狙いなら肩甲骨はほぼ固定'],
+  ng:['重量が重すぎて僧帽筋主導になる']},
+ 'アームカール':{en:'BICEPS CURL',cat:'腕｜肘屈曲',p:['biceps'],s:['forearm'],
+  cue:['肘を体側で固定。上腕は動かさない','回外（手のひらを上に返す）を伴うと二頭筋の収縮が強まる','トップで肘を完全に閉じず、張力を残す'],
+  ng:['肘が前に出て三角筋前部が手伝う','体を反らせて振り上げる']},
+ 'キックバック':{en:'TRICEPS KICKBACK',cat:'腕｜肘伸展',p:['triceps'],s:[],
+  cue:['上腕を体幹と平行かやや上に固定し、そこから先だけ動かす','伸展位で1秒止める（長頭は肩伸展位で最大収縮）','重量より可動域と静止。軽くて構わない'],
+  ng:['肘（上腕）が動いて肩の運動になる','反動で振る']},
+ 'トライセプスプレスダウン':{en:'TRICEPS PUSHDOWN',cat:'腕｜肘伸展',p:['triceps'],s:[],
+  cue:['脇を締めて肘を体側に固定','押し切りで小指側を軽く回内すると外側頭に入りやすい'],
+  ng:['体を前傾させて体重で押す','肘が前後に泳ぐ']},
+ 'スクワット':{en:'SQUAT',cat:'脚｜スクワット系',p:['quad','gluteMax'],s:['adductor','erector','ham'],
+  cue:['足幅は肩幅前後、つま先はやや外。膝はつま先と同じ方向へ','股関節と膝を同時に曲げ始める（お尻を後ろへ引きながら沈む）','腹圧をかけて胸椎の伸展を保つ。目線は前下方','深さは骨盤が後傾（バットウィンク）する直前まで'],
+  ng:['膝が内側に入る（knee-in）＝中臀筋・外旋筋の不足','踵が浮く＝足関節背屈制限。踵を少し上げるか可動域を出す']},
+ 'レッグプレス':{en:'LEG PRESS',cat:'脚｜スクワット系（マシン）',p:['quad','gluteMax'],s:['adductor','ham'],
+  cue:['足位置が高いほど臀筋・ハム、低いほど大腿四頭筋が優位','腰がシートから浮く手前で折り返す（腰椎の屈曲を防ぐ）','膝は伸ばし切ってロックしない'],
+  ng:['深く下ろしすぎて骨盤が後傾する','膝が内側に入る']},
+ 'レッグエクステンション':{en:'LEG EXTENSION',cat:'脚｜膝伸展（単関節）',p:['quad'],s:[],
+  cue:['膝の回転軸とマシンの軸を合わせる','トップで1〜2秒止める（内側広筋の収縮を感じる）'],
+  ng:['勢いよく蹴り上げる → 膝蓋大腿関節の圧が上がる']},
+ 'レッグカール':{en:'LEG CURL',cat:'脚｜膝屈曲（単関節）',p:['ham'],s:['calf'],
+  cue:['骨盤を固定して腰を反らせない','つま先を手前に引く（背屈）と腓腹筋の関与が増える。ハム狙いなら底屈で'],
+  ng:['お尻が浮いて腰で引く']},
+ 'デッドリフト':{en:'DEADLIFT',cat:'背中/脚｜ヒンジ',p:['erector','gluteMax','ham'],s:['lat','trapM','quad','forearm'],
+  cue:['バーは足の中心の真上。すねに沿わせて引く','引く前に「バーを軽く張って」広背筋で脇を締める＝腰椎の屈曲を防ぐ','股関節と膝を同時に伸ばす。トップで反り返らない（骨盤を立てて終わり）'],
+  ng:['腰が丸まる（腰椎屈曲＋負荷＝椎間板に最も不利）','バーが体から離れる → モーメントアームが伸びて腰の負担が急増']},
+ 'ルーマニアンデッドリフト':{en:'ROMANIAN DEADLIFT',cat:'脚/背中｜ヒンジ',p:['ham','gluteMax'],s:['erector','lat'],
+  cue:['膝は15°程度で固定し、股関節だけを後ろに送る','ハムのストレッチが止まった所が下限（床を目指さない）','背中はニュートラル、バーは太ももをこするように'],
+  ng:['膝を曲げてスクワットになる','背中を丸めて下ろす']},
+ 'ヒップスラスト':{en:'HIP THRUST',cat:'臀部｜股関節伸展',p:['gluteMax'],s:['ham','quad'],
+  cue:['トップで骨盤をやや後傾（肋骨を締める）＝腰椎の反りで代償しない','すねを床と垂直に。足が遠いとハム、近いと大腿四頭筋が強くなる','トップで2秒止める'],
+  ng:['腰を反って"上がったつもり"になる','顎が上がって胸椎が反る']},
+ 'ヒップアブダクション':{en:'HIP ABDUCTION',cat:'臀部｜外転',p:['gluteMed'],s:['gluteMax'],
+  cue:['やや前傾すると中臀筋の後部線維に入りやすい','骨盤を固定して体幹を倒して逃げない','戻す時に完全に閉じず張力を残す'],
+  ng:['反動で開く','大腿筋膜張筋（前外側）ばかり張る → 前傾角度と股関節の外旋を調整']},
+ 'ヒップアダクション':{en:'HIP ADDUCTION',cat:'内もも｜内転',p:['adductor'],s:[],
+  cue:['骨盤を立てて座り、股関節から閉じる','閉じ切りで1秒止める。戻しはゆっくり（伸張性収縮を効かせる）'],
+  ng:['腰を丸めて反動で閉じる','可動域を出しすぎて内転筋の付着部を痛める']},
+ 'ブルガリアンスクワット':{en:'BULGARIAN SPLIT SQUAT',cat:'脚｜片脚',p:['quad','gluteMax'],s:['gluteMed','adductor','ham'],
+  cue:['体をやや前傾させると臀筋、垂直に保つと大腿四頭筋が優位','前脚の足裏全体で踏む。膝はつま先方向','後ろ脚は"支え"。前脚に8割乗せる'],
+  ng:['前脚の膝が内側に入る','歩幅が狭くて膝が過度に前へ出る']},
+ 'ランジ':{en:'LUNGE',cat:'脚｜片脚',p:['quad','gluteMax'],s:['gluteMed','adductor','ham'],
+  cue:['骨盤を正面に保ち、上体は真っ直ぐ落とす','前脚の踵で押して戻る＝臀筋、つま先寄りだと大腿四頭筋'],
+  ng:['膝が内側に入る','歩幅が短く前傾しすぎる']},
+ 'カーフレイズ':{en:'CALF RAISE',cat:'ふくらはぎ｜底屈',p:['calf'],s:[],
+  cue:['トップで1秒静止、ボトムでしっかり踵を落として伸張','膝を伸ばすと腓腹筋、曲げるとヒラメ筋が優位'],
+  ng:['反動で弾む（腱の弾性だけ使う）']},
+ 'アブドミナルクランチ':{en:'CRUNCH',cat:'腹｜体幹屈曲',p:['rectus'],s:['oblique'],
+  cue:['骨盤を後傾させ、胸骨を恥骨に近づける（背骨を1本ずつ丸める）','首を引っ張らない。顎と胸の間に拳1つ'],
+  ng:['股関節屈筋（腸腰筋）で起き上がる','反動で振り上げる']},
+ 'プランク':{en:'PLANK',cat:'体幹｜抗伸展',p:['rectus','oblique'],s:['erector','gluteMax'],
+  cue:['肋骨を締めて骨盤をやや後傾。腰を反らない','肘で床を押して肩甲骨を広げる（前鋸筋も働く）','30〜60秒×数セット。フォームが崩れたら終了'],
+  ng:['腰が落ちる（腰椎の過伸展）','お尻が高く上がって負荷が抜ける']},
+ 'バックエクステンション':{en:'BACK EXTENSION',cat:'背中/臀部｜股関節伸展',p:['erector','gluteMax'],s:['ham'],
+  cue:['体が一直線になる所で止める（反り返らない）','股関節から動かす意識だと臀筋・ハム、背骨を反らすと脊柱起立筋'],
+  ng:['勢いよく反り返る → 腰椎の椎間関節に負担']}
+};
+const EX_ALIAS={'ラットプル':'ラットプルダウン','ラットプルダウンマシン':'ラットプルダウン','懸垂':'チンニング','チンアップ':'チンニング','プルアップ':'チンニング',
+ 'ローイング':'シーテッドロー','シーテッドロウ':'シーテッドロー','ケーブルロー':'シーテッドロー','ワンハンドロー':'ベントオーバーロー','ベントオーバーロウ':'ベントオーバーロー',
+ 'ダンベルプレス':'ベンチプレス','スミスベンチプレス':'ベンチプレス','インクラインベンチプレス':'ベンチプレス','ペックフライ':'ダンベルフライ','チェストフライ':'ダンベルフライ','ペックデック':'ダンベルフライ',
+ 'ミリタリープレス':'ショルダープレス','ダンベルショルダープレス':'ショルダープレス','サイドレイズマシン':'サイドレイズ','ラテラルレイズ':'サイドレイズ','リアデルト':'リアレイズ','リアデルトフライ':'リアレイズ',
+ 'ダンベルカール':'アームカール','バーベルカール':'アームカール','ハンマーカール':'アームカール','カール':'アームカール',
+ 'トライセプスキックバック':'キックバック','プレスダウン':'トライセプスプレスダウン','ケーブルプレスダウン':'トライセプスプレスダウン',
+ 'バーベルスクワット':'スクワット','スミススクワット':'スクワット','ハックスクワット':'スクワット','ゴブレットスクワット':'スクワット',
+ 'レッグエクステンションマシン':'レッグエクステンション','レッグカールマシン':'レッグカール','シーテッドレッグカール':'レッグカール',
+ 'ルーマニアン':'ルーマニアンデッドリフト','RDL':'ルーマニアンデッドリフト','スティフレッグデッドリフト':'ルーマニアンデッドリフト',
+ 'ヒップリフト':'ヒップスラスト','グルートブリッジ':'ヒップスラスト','アブダクション':'ヒップアブダクション','外転':'ヒップアブダクション',
+ 'アダクション':'ヒップアダクション','内転':'ヒップアダクション','ブルガリアン':'ブルガリアンスクワット','スプリットスクワット':'ブルガリアンスクワット',
+ 'ウォーキングランジ':'ランジ','クランチ':'アブドミナルクランチ','シットアップ':'アブドミナルクランチ','腹筋':'アブドミナルクランチ',
+ 'アブローラー':'プランク','背筋':'バックエクステンション','ハイパーエクステンション':'バックエクステンション'};
+function anatNorm(s){return String(s||'').replace(/[\s　・（）()【】\[\]/／]/g,'').toLowerCase();}
+function findEx(name){
+  const n=anatNorm(name);if(!n)return null;
+  const keys=Object.keys(EX);
+  for(const k of keys)if(anatNorm(k)===n)return {key:k,data:EX[k]};
+  for(const a of Object.keys(EX_ALIAS))if(anatNorm(a)===n)return {key:EX_ALIAS[a],data:EX[EX_ALIAS[a]]};
+  for(const k of keys)if(n.indexOf(anatNorm(k))>=0||anatNorm(k).indexOf(n)>=0)return {key:k,data:EX[k]};
+  for(const a of Object.keys(EX_ALIAS))if(n.indexOf(anatNorm(a))>=0)return {key:EX_ALIAS[a],data:EX[EX_ALIAS[a]]};
+  return null;}
+function musSpec(k,no,isP){const m=MUS[k];if(!m)return '';
+  return `<div class="mcard">
+    <div class="mhead"><span class="mno${isP?'':' sub'}">${no}</span>
+      <span><b style="font-size:15px">${m.jp}</b> <span class="muted" style="font-size:11px;letter-spacing:.04em">${m.en}</span>
+      <div class="muted" style="font-size:11px">${isP?'主働筋 PRIME MOVER':'協働筋 SYNERGIST'}</div></span></div>
+    <div class="mspec"><span>起始</span><div>${m.o}</div></div>
+    <div class="mspec"><span>停止</span><div>${m.i}</div></div>
+    <div class="mspec"><span>作用</span><div>${m.a}</div></div>
+    <div class="mspec"><span>支配神経</span><div><b>${m.n}</b></div></div>
+  </div>`;}
+function openAnat(name){
+  window._anatName=name;
+  const s=document.getElementById('anatSheet');s.classList.add('on');s.innerHTML=anatView(name);
+  window.scrollTo(0,0);s.scrollTop=0;}
+function closeAnat(){const s=document.getElementById('anatSheet');s.classList.remove('on');s.innerHTML='';}
+function anatView(name){
+  const hit=findEx(name);
+  const cached=(D.anatCache||{})[name];
+  const nmQ=esc(name).replace(/'/g,'');
+  const head=`<div class="anatbar"><b style="font-size:15px">🫀 解剖ページ</b><button class="close" onclick="closeAnat()">✕</button></div>`;
+  if(!hit&&!cached){
+    return head+`<div class="wrap" style="padding-bottom:40px">
+      <div class="card" style="margin-top:14px"><h3 style="margin-top:0">「${esc(name)}」はまだ収録されていません</h3>
+      <div class="muted">内蔵の解剖データにこの種目名がありません。AIコーチに作らせて、この端末に保存できます（次回から即表示）。</div>
+      <button class="btn" style="margin-top:10px" onclick="genAnat('${nmQ}')">🐉 AIに解剖ページを作らせる</button>
+      <div class="muted" style="font-size:11px;margin-top:8px">※ 図はアプリ内蔵のオリジナルSVG。起始・停止・支配神経などの事実は言語モデルの記述を正として表示します（生成画像は使いません）。</div></div></div>`;}
+  const d=hit?hit.data:null;
+  const prim=(cached&&cached.p)||(d?d.p:[]);
+  const sec=(cached&&cached.s)||(d?d.s:[]);
+  const en=(d&&d.en)||(cached&&cached.en)||'ANATOMY';
+  const cat=(d&&d.cat)||(cached&&cached.cat)||'';
+  const num={};prim.forEach((k,i)=>num[k]=i+1);sec.forEach((k,i)=>{if(!num[k])num[k]=prim.length+i+1;});
+  return head+`<div class="wrap" style="padding-bottom:56px">
+    <div class="anathero">
+      <div class="anatkicker">${esc(cat||'ANATOMY')}</div>
+      <h1 class="anattitle">${esc(hit?hit.key:name)}</h1>
+      <div class="anaten">${esc(en)}</div>
+    </div>
+    <div class="card" style="padding:10px 8px 4px">
+      ${anatSvg(prim,sec)}
+      <div class="row" style="gap:12px;justify-content:center;padding:2px 0 8px;font-size:11px">
+        <span><span class="swatch" style="background:var(--accent);border-color:var(--accentD)"></span>主働筋</span>
+        <span><span class="swatch" style="background:#ffd39a;border-color:var(--accent2)"></span>協働筋</span>
+        <span><span class="swatch" style="background:#dde4ec;border-color:#c9d3dd"></span>その他</span>
+      </div>
+    </div>
+    ${prim.map(k=>musSpec(k,num[k],true)).join('')}
+    ${sec.map(k=>musSpec(k,num[k],false)).join('')}
+    ${d?`<div class="anatsec"><div class="anatsech">意識するポイント<span>CUES</span></div>
+      ${d.cue.map((c,i)=>`<div class="cueline"><span class="cueno">${i+1}</span><span>${esc(c)}</span></div>`).join('')}</div>`:''}
+    ${d&&d.ng&&d.ng.length?`<div class="anatsec"><div class="anatsech" style="border-color:var(--warn)">よくある代償動作<span>WATCH OUT</span></div>
+      ${d.ng.map(c=>`<div class="cueline"><span class="cueno warn">!</span><span>${esc(c)}</span></div>`).join('')}</div>`:''}
+    ${cached&&cached.text?`<div class="anatsec"><div class="anatsech">AIコーチの解説<span>AI NOTE</span></div>
+      <div style="font-size:13px;line-height:1.75">${mdToHtml(cached.text)}</div>
+      <button class="minibtn" style="margin-top:8px" onclick="genAnat('${nmQ}',1)">↻ 作り直す</button></div>`:''}
+    ${exNote(hit?hit.key:name)?`<div class="anatsec"><div class="anatsech">あなたのメモ<span>MY NOTE</span></div>
+      <div style="font-size:13px;line-height:1.75">${mdToHtml(exNote(hit?hit.key:name))}</div></div>`:''}
+    <button class="btn" style="margin-top:14px" onclick="closeAnat();askForm('${nmQ}')">🐉 この種目をコーチに深掘りする</button>
+    <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">図はこのアプリのために描き起こしたオリジナルの模式図です（形状は簡略化）。起始・停止・作用・支配神経は解剖学の標準的記載に基づくテキストが正で、図はイメージ補助として見てください。</div>
+  </div>`;}
+async function genAnat(name,force){
+  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');return;}
+  D.anatCache=D.anatCache||{};
+  if(D.anatCache[name]&&!force)return;
+  const s=document.getElementById('anatSheet');
+  s.innerHTML=`<div class="anatbar"><b style="font-size:15px">🫀 解剖ページ</b><button class="close" onclick="closeAnat()">✕</button></div>
+    <div class="wrap"><div class="card" style="margin-top:14px"><b>🐉 「${esc(name)}」の解剖ページを作成中…</b><div class="muted" style="margin-top:4px">効く筋・起始停止・神経・意識点をまとめています</div></div></div>`;
+  const keys=Object.keys(MUS).join(',');
+  const sys=`あなたは解剖学に厳密なスポーツ医学コーチ。整形外科志望の医療従事者向けに回答する。
+出力は必ず次の形式で、1行目と2行目は指定どおりに：
+MUSCLES: <主働筋のキーをカンマ区切り（1〜2個）>
+SUB: <協働筋のキーをカンマ区切り（0〜4個）>
+（使えるキーはこの中だけ: ${keys}）
+3行目以降は本文（マークダウン、見出し「## 効く筋」「## 意識するポイント」「## よくある代償動作」）。
+本文には各筋の起始・停止・作用・支配神経（脊髄髄節つき）を正確に書く。推測が混じる場合はその旨を明記。カロリー収支や部分痩せ等の一般論は書かない。簡潔に。`;
+  try{const ans=await aiCallRetry([{role:'user',content:`種目「${name}」の解剖ページを作って。`}],{system:sys,model:aiModelChat(),max_tokens:1600});
+    const valid=Object.keys(MUS);
+    const pick=(re)=>{const m=ans.match(re);return m?m[1].split(/[,、\s]+/).map(x=>x.trim()).filter(x=>valid.indexOf(x)>=0):[];};
+    const p=pick(/^\s*MUSCLES\s*[:：]\s*(.+)$/mi), sb=pick(/^\s*SUB\s*[:：]\s*(.+)$/mi);
+    const text=ans.replace(/^\s*MUSCLES\s*[:：].*$/mi,'').replace(/^\s*SUB\s*[:：].*$/mi,'').trim();
+    D.anatCache[name]={p:p.length?p:['rectus'],s:sb,en:'AI GENERATED',cat:'AI作成ページ',text:text};
+    save();s.innerHTML=anatView(name);s.scrollTop=0;}
+  catch(e){s.innerHTML=`<div class="anatbar"><b style="font-size:15px">🫀 解剖ページ</b><button class="close" onclick="closeAnat()">✕</button></div>
+    <div class="wrap"><div class="card" style="margin-top:14px">⚠️ 作成に失敗しました<div class="muted" style="margin-top:4px">${esc(e.message)}</div>
+    <button class="btn" style="margin-top:10px" onclick="genAnat('${esc(name).replace(/'/g,'')}',1)">もう一度</button></div></div>`;}}
+
+/* ============ 数字入力：タップで全選択（デリート地獄の解消）============ */
+document.addEventListener('focusin',function(e){
+  const el=e.target;if(!el||el.tagName!=='INPUT')return;
+  const t=(el.getAttribute('type')||'').toLowerCase();
+  const im=(el.getAttribute('inputmode')||'').toLowerCase();
+  if(t!=='number'&&im!=='decimal'&&im!=='numeric')return;
+  setTimeout(function(){try{el.select();}catch(_){}},0);
+});
+
 /* ============ 起動 ============ */
 window._mood='';window._pkind='progress';window._soreParts=[];window._soreLv='';
 render();
