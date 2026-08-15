@@ -184,12 +184,13 @@
 /* ============ データ層 ============ */
 const KEY='karada_v1';
 const DEFAULT={
-  profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:'', modelChat:'claude-sonnet-5', modelData:'claude-haiku-4-5-20251001'},
+  profile:{name:'', goal:'', model:'claude-haiku-4-5-20251001', apiKey:'', modelChat:'claude-sonnet-5', modelData:'claude-haiku-4-5-20251001',
+    height:'', age:'', sex:'女', act:1.35, lbm:'', pace:0.15, targets:{}},
   templates:[], workouts:[], runs:[], meals:[],
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}, coachLog:[], anatCache:{}
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}, coachLog:[], anatCache:{}, rx:null
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -205,6 +206,8 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!d.dailyNotes||typeof d.dailyNotes!=='object')d.dailyNotes={};
   if(!Array.isArray(d.coachLog))d.coachLog=[];
   if(!d.anatCache||typeof d.anatCache!=='object')d.anatCache={};
+  if(!d.profile.targets||typeof d.profile.targets!=='object')d.profile.targets={};
+  if(d.rx&&typeof d.rx!=='object')d.rx=null;
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
 function save(){localStorage.setItem(KEY,JSON.stringify(D));}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -255,7 +258,7 @@ function render(){
   v.innerHTML=(({'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar,'コーチ':vCoach}[tab])||vTre)();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
-  if(tab==='コーチ')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
+  if(tab==='コーチ'&&(sub.coach||'相談')==='相談')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
   if(tab==='食事')loadCalThumbs(document.getElementById('view'));
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
   const sb=document.getElementById('sessbar');
@@ -828,7 +831,9 @@ function mealDefaultType(){const d=new Date();const h=d.getHours()+d.getMinutes(
 function vMeal(){
   const t=today();const tm=D.meals.filter(x=>x.date===t);
   return `
-  <div class="banner">カロリー計算は無理しなくてOK。写真を付けて記録→各カードの「🍽️ AIで栄養＆サプリ分析」で、PFC目安と手持ちサプリの提案が出る（コーチ開眼後）。撮れない日は「チートデイ」でざっくり。</div>
+  ${vProteinFocus()}
+  ${vNutToday()}
+  <div class="banner">カロリー計算は無理しなくてOK。写真を付けて記録→各カードの「🍽️ AIで栄養＆サプリ分析」で PFC が<b>数値で入って上のグラフに反映</b>される。撮れない日は「チートデイ」でざっくり、または各カードの「✏️ 栄養を手入力」から。</div>
   <div class="card">
     <h3 style="margin-top:0">食事を記録</h3>
     <div class="flex2">
@@ -845,6 +850,7 @@ function vMeal(){
   </div>
   <h3>今日の食事</h3>
   ${tm.length?tm.map(m=>mealItem(m)).join(''):'<div class="muted">まだなし</div>'}
+  ${vNutWeek()}
   <h3>これまで</h3>
   ${D.meals.filter(x=>x.date!==t).slice(-12).reverse().map(m=>mealItem(m)).join('')||'<div class="muted">—</div>'}`;
 }
@@ -854,11 +860,25 @@ async function saveMeal(){const memo=document.getElementById('mMemo').value.trim
   D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoId});
   _mealLevel='普通';save();render();}
 function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
+  const has=mealHasNut(m);
+  const nut=`<div class="row" style="gap:5px;margin-top:6px;font-size:12px">
+    <span class="pill ${has?'ok':''}">${has?'':'約'}${mealKcal(m)}kcal</span>
+    ${(+m.p)?`<span class="pill">P ${+m.p}g</span>`:''}${(+m.f)?`<span class="pill">F ${+m.f}g</span>`:''}${(+m.c)?`<span class="pill">C ${+m.c}g</span>`:''}
+    ${has?'':'<span class="muted" style="font-size:11px">ボリューム感からの推定</span>'}</div>`;
   return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
   <b>${esc(m.type)}</b><span class="d">${fmtD(m.date)}<button class="del" onclick="delMeal('${m.id}')">削除</button></span></div>
   <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
+  ${nut}
   ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
   ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
+  <details style="margin-top:6px"><summary style="cursor:pointer;list-style:none;font-size:12px;color:var(--accentD);font-weight:700">✏️ 栄養を手入力</summary>
+    <div class="row" style="gap:5px;margin-top:6px">
+      ${[['kcal','kcal'],['p','P(g)'],['f','F(g)'],['c','C(g)']].map(([k,l])=>`<div style="flex:1 1 22%">
+        <label style="margin:2px 0;font-size:11px">${l}</label>
+        <input type="number" inputmode="decimal" style="padding:8px 4px;text-align:center;font-weight:700" value="${m[k]!=null&&m[k]!==''?m[k]:''}" onchange="setMealNut('${m.id}','${k}',this.value)"></div>`).join('')}
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:4px">kcalを入れると推定ではなく実測としてグラフに入ります。空にすると推定に戻ります。</div>
+  </details>
   ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
 async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);if(!m||!m.photoId){alert('写真がありません');return;}
   if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
@@ -868,9 +888,17 @@ async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);i
   const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
   const b64=im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'');
   const sup=D.supList.map(s=>s.name+(s.count?`(いつも${s.count}${supUnit(s)})`:'')).join('・');
-  const prompt=`この食事写真を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。`;
-  try{const r=await aiCall([{role:'user',content:[{type:'text',text:prompt},{type:'image',source:{type:'base64',media_type:mt,data:b64}}]}],{model:aiModelData(),max_tokens:600});
-    m.aiNote=r;save();render();}
+  const prompt=`この食事写真を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。\n\n最後に必ず、次の形式の1行だけを付けてください（アプリがグラフに使います。画面には表示されません。幅ではなく中央値の整数で）：\nDATA: kcal=520, p=32, f=18, c=55`;
+  try{const r=await aiCall([{role:'user',content:[{type:'text',text:prompt},{type:'image',source:{type:'base64',media_type:mt,data:b64}}]}],{model:aiModelData(),max_tokens:700});
+    let txt=r,got=false;
+    txt=txt.replace(/^\s*DATA\s*[:：].*$/mi,function(line){
+      const g=k=>{const mm=line.match(new RegExp(k+'\\s*[=:：]\\s*(\\d+(?:\\.\\d+)?)','i'));return mm?Math.round(+mm[1]):null;};
+      const kc=g('kcal'),pp=g('p'),ff=g('f'),cc=g('c');
+      if(kc){m.kcal=kc;got=true;}
+      if(pp!=null)m.p=pp;if(ff!=null)m.f=ff;if(cc!=null)m.c=cc;
+      return '';}).replace(/\n{3,}/g,'\n\n').trim();
+    m.aiNote=txt+(got?'\n\n📊 カロリー・PFCをグラフに反映しました（違ってたら「✏️ 栄養を手入力」で直せます）':'');
+    save();render();}
   catch(e){m.aiNote='⚠️ '+e.message;save();render();}}
 async function delMeal(id){const m=D.meals.find(x=>x.id===id);if(m&&m.photoId)await imgDel(m.photoId);D.meals=D.meals.filter(x=>x.id!==id);save();render();}
 
@@ -1057,22 +1085,52 @@ function saveCond(){D.conditions.push({id:uid(),date:document.getElementById('cD
 
 function vChart(){
   return `<div class="card"><h3 style="margin-top:0">推移グラフ</h3>
-    <select id="chartPick" onchange="drawChart()">${MFIELDS.map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
+    <select id="chartPick" onchange="drawChart()">${MFIELDS.map(([k,l,u])=>`<option value="${k}">${l}（${u}）</option>`).join('')}</select>
+    <label style="display:flex;gap:7px;align-items:center;margin-top:8px">
+      <input type="checkbox" id="chartOverlay" ${window._chartOv?'checked':''} onchange="window._chartOv=this.checked;drawChart()">
+      <span style="font-size:13px;color:var(--ink)">摂取カロリー（週平均）を重ねる</span></label>
     <div id="chartBox" style="margin-top:12px"></div></div>`;
 }
+/* 採寸の推移に、その週の平均摂取カロリーを重ねる＝「このカロリーで実際どう動いたか」を自分のデータで見る */
+function weekAvgKcal(dateStr,days){days=days||7;const end=new Date(dateStr+'T00:00');let s=0,n=0;
+  for(let i=0;i<days;i++){const d=new Date(end);d.setDate(d.getDate()-i);const ds=d.toISOString().slice(0,10);
+    if(D.meals.some(m=>m.date===ds)){s+=dayIntake(ds).k;n++;}}
+  return n?Math.round(s/n):null;}
 function drawChart(){const box=document.getElementById('chartBox');if(!box)return;
   const k=document.getElementById('chartPick').value;
+  const fld=MFIELDS.find(f=>f[0]===k)||[k,k,''];
   const pts=D.measures.filter(m=>m[k]!=null).map(m=>({x:m.date,y:m[k]}));
   if(pts.length<2){box.innerHTML='<div class="muted">データが2件以上たまるとグラフが出ます</div>';return;}
-  const W=460,H=180,pad=30;const ys=pts.map(p=>p.y);const mn=Math.min(...ys),mx=Math.max(...ys);const rng=(mx-mn)||1;
+  const ov=!!window._chartOv;
+  const W=460,H=190,pad=34;const ys=pts.map(p=>p.y);const mn=Math.min(...ys),mx=Math.max(...ys);const rng=(mx-mn)||1;
   const X=i=>pad+i*(W-2*pad)/(pts.length-1);const Y=v=>H-pad-((v-mn)/rng)*(H-2*pad);
   const line=pts.map((p,i)=>`${i?'L':'M'}${X(i).toFixed(1)},${Y(p.y).toFixed(1)}`).join(' ');
-  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3" fill="#2f9e83"/>`).join('');
+  const dots=pts.map((p,i)=>`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.4" fill="#2f9e83"/>`).join('');
   const labs=pts.map((p,i)=>(i%Math.ceil(pts.length/5)===0||i===pts.length-1)?`<text x="${X(i)}" y="${H-8}" font-size="10" fill="var(--sub)" text-anchor="middle">${fmtD(p.x)}</text>`:'').join('');
+  let ovSvg='',ovLeg='',ovNote='';
+  if(ov){
+    const ks=pts.map(p=>weekAvgKcal(p.x));
+    const val=ks.filter(v=>v!=null);
+    if(val.length>=2){
+      const kmn=Math.min(...val),kmx=Math.max(...val),krng=(kmx-kmn)||1;
+      const KY=v=>H-pad-((v-kmn)/krng)*(H-2*pad);
+      let d='',prev=false;
+      ks.forEach((v,i)=>{if(v==null){prev=false;return;}d+=`${prev?'L':'M'}${X(i).toFixed(1)},${KY(v).toFixed(1)} `;prev=true;});
+      ovSvg=`<path d="${d.trim()}" fill="none" stroke="var(--accent2)" stroke-width="2" stroke-dasharray="5 4"/>`
+        +ks.map((v,i)=>v==null?'':`<circle cx="${X(i).toFixed(1)}" cy="${KY(v).toFixed(1)}" r="2.6" fill="var(--accent2)"/>`).join('')
+        +`<text x="${W-4}" y="14" font-size="10" fill="var(--accent2)" text-anchor="end">${kmx}kcal</text>
+          <text x="${W-4}" y="${H-pad}" font-size="10" fill="var(--accent2)" text-anchor="end">${kmn}kcal</text>`;
+      ovLeg=`　<span style="color:var(--accent2)">┅</span> 摂取kcal（直前7日の平均）`;
+    }else ovNote='<div class="muted" style="font-size:11px;margin-top:4px">※ 食事の記録がまだ少なくて重ねられません（採寸日の直前7日に食事記録が必要）</div>';
+  }
+  const first=pts[0],last=pts[pts.length-1];const diff=Math.round((last.y-first.y)*10)/10;
   box.innerHTML=`<svg viewBox="0 0 ${W} ${H}">
-    <text x="4" y="14" font-size="11" fill="var(--sub)">${mx}</text><text x="4" y="${H-pad}" font-size="11" fill="var(--sub)">${mn}</text>
-    <path d="${line}" fill="none" stroke="#2f9e83" stroke-width="2"/>${dots}${labs}</svg>
-    <div class="muted">最新 ${pts[pts.length-1].y}（${pts.length}件）</div>`;
+    <text x="4" y="14" font-size="10" fill="#2f9e83">${mx}${fld[2]}</text><text x="4" y="${H-pad}" font-size="10" fill="#2f9e83">${mn}${fld[2]}</text>
+    <path d="${line}" fill="none" stroke="#2f9e83" stroke-width="2.4"/>${dots}${ovSvg}${labs}</svg>
+    <div class="muted"><span style="color:#2f9e83">━</span> ${fld[1]}${ovLeg}</div>
+    <div class="muted" style="margin-top:4px">最新 <b>${last.y}${fld[2]}</b>（${pts.length}件・初回から ${diff>0?'+':''}${diff}${fld[2]}）</div>
+    ${ovNote}
+    ${ov&&ovSvg?'<div class="muted" style="font-size:11px;margin-top:6px;line-height:1.7">2本の動きを見比べると、「自分の体が実際どのカロリーで動いたか」が分かります。推定式より<b>自分の実測のほうが正確</b>なので、数週間たまったらこっちを基準にしてね。</div>':''}`;
 }
 
 /* ============ 写真 ============ */
@@ -1133,6 +1191,25 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <button class="btn sm ghost" style="width:100%;margin-top:8px" onclick="saveProfile()">保存</button>
     </div>
     <div class="card">
+      <h3 style="margin-top:0">⚖️ 体・エネルギー設定</h3>
+      <div class="muted">推定消費カロリーと目標摂取カロリーの計算に使います。体重は「からだ→採寸」の最新値を自動で使うので、ここには入れなくてOK。</div>
+      <div class="row" style="margin-top:6px">
+        <div style="flex:1 1 30%"><label style="margin:2px 0">身長（cm）</label><input id="pfHeight" type="number" inputmode="decimal" value="${D.profile.height!==''&&D.profile.height!=null?D.profile.height:''}" placeholder="cm"></div>
+        <div style="flex:1 1 30%"><label style="margin:2px 0">年齢</label><input id="pfAge" type="number" inputmode="numeric" value="${D.profile.age!==''&&D.profile.age!=null?D.profile.age:''}" placeholder="歳"></div>
+        <div style="flex:1 1 30%"><label style="margin:2px 0">性別</label><select id="pfSex">${['女','男'].map(x=>`<option${x===(D.profile.sex||'女')?' selected':''}>${x}</option>`).join('')}</select></div>
+      </div>
+      <label>除脂肪体重（InBodyがあれば。入れるとこちらを優先＝精度UP）</label>
+      <input id="pfLbm" type="number" inputmode="decimal" value="${D.profile.lbm!==''&&D.profile.lbm!=null?D.profile.lbm:''}" placeholder="kg（未測定なら空でOK）">
+      <label>ふだんの生活活動（運動は別に上乗せするので、ここは"運動以外"）</label>
+      <select id="pfAct">${ACT.map(([v,l])=>`<option value="${v}"${v===pfv('act',1.35)?' selected':''}>${l}</option>`).join('')}</select>
+      <label>目標のペース</label>
+      <select id="pfPace">${PACE.map(([v,l])=>`<option value="${v}"${v===pfv('pace',0.15)?' selected':''}>${l}</option>`).join('')}</select>
+      <button class="btn sm ghost" style="width:100%;margin-top:10px" onclick="saveBody()">保存</button>
+      ${nutReady()?`<div class="hint">いまの計算：基礎代謝 <b>${bmr()}</b>kcal（${bmrKind()}）／推定消費 <b>${tdee(today())}</b>kcal ／ 目標摂取 <b>${targetKcal(today())}</b>kcal</div>`
+        :'<div class="hint">⚠️ まだ計算できません。身長・年齢と、採寸の体重（または除脂肪体重）を入れてください。</div>'}
+      <div class="hint">⚠️ 目標摂取カロリーは、どのペースを選んでも<b>基礎代謝量を下回らない</b>ようにしてあります（極端な制限を防ぐため）。</div>
+    </div>
+    <div class="card">
       <h3 style="margin-top:0">🐉 AIコーチ（開眼）</h3>
       <div class="muted">Claude APIキーを入れると「コーチ」タブで相談が使えるように。キーは端末内だけに保存し、Anthropicのapi以外には送りません。</div>
       <label style="margin-top:8px">APIキー</label>
@@ -1159,9 +1236,20 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v4（AI開眼）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v6.2（栄養・処方箋・実行率）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
+function saveBody(){const g=id=>document.getElementById(id);
+  D.profile.height=g('pfHeight').value===''?'':+g('pfHeight').value;
+  D.profile.age=g('pfAge').value===''?'':+g('pfAge').value;
+  D.profile.sex=g('pfSex').value;
+  D.profile.lbm=g('pfLbm').value===''?'':+g('pfLbm').value;
+  D.profile.act=+g('pfAct').value;
+  D.profile.pace=+g('pfPace').value;
+  save();
+  alert(nutReady()?('保存しました\n基礎代謝 '+bmr()+'kcal ／ 推定消費 '+tdee(today())+'kcal ／ 目標摂取 '+targetKcal(today())+'kcal')
+    :'保存しました（体重が未記録なので、からだ→採寸で体重を入れると計算が始まります）');
+  render();openSettings();}
 function redactedData(){const c=JSON.parse(JSON.stringify(D));if(c.profile){c.profile.apiKey='';}return c;}
 function exportData(){const blob=new Blob([JSON.stringify(redactedData(),null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='karada-backup-'+today()+'.json';a.click();}
@@ -1207,6 +1295,11 @@ function aiContext(){const L=[];
   const rc=D.conditions.slice(-5);if(rc.length)L.push('◾最近の体調/生理: '+rc.map(c=>`${c.date}${c.period?'🩸':''}${c.mood||''}${c.memo?'('+c.memo+')':''}`).join(' / '));
   const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
   const sc=(D.schedule||[]).slice(-6);if(sc.length)L.push('◾直近の予定: '+sc.map(s=>`${s.date} ${s.type||''}${s.title||''}${s.time?'@'+s.time:''}`).join(' / '));
+  if(nutReady()){const g=targetPFC(today()),i=dayIntake(today());
+    L.push(`◾エネルギー(推定): 基礎代謝${bmr()}kcal / 今日の推定消費${tdee(today())}kcal / 目標摂取${g.k}kcal(P${g.p}g F${g.f}g C${g.c}g) / 今日の摂取${i.k}kcal(P${i.p}g F${i.f}g C${i.c}g・${i.n}食${i.est?`うち${i.est}件は推定`:''})`);
+    const tg=(D.profile.targets||{});const tt=MFIELDS.filter(([k])=>tg[k]!=null).map(([k,l,u])=>l+tg[k]+u).join(' ');
+    if(tt)L.push('◾目標の採寸/体重: '+tt);}
+  if(D.rx&&D.rx.text)L.push('◾前回の処方箋('+D.rx.date+')の要点: '+D.rx.text.replace(/\s+/g,' ').slice(0,400));
   const sp=D.supList.map(s=>s.name+(s.timing?`(${s.timing})`:'')).join('・');if(sp)L.push('◾常用サプリ: '+sp);
   const wl=(D.wishlist||[]).slice(-8);if(wl.length)L.push('◾やってみたいメモ(気になる種目/投稿): '+wl.map(w=>w.text).join(' / '));
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
@@ -1271,7 +1364,7 @@ function sendCoach(){const inp=document.getElementById('coachInput');const q=(in
   if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
   curThread().push({role:'user',content:q});window._coachDraft='';if(inp)inp.value='';save();runCoach();}
 function coachAsk(q,thread){if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
-  if(thread)window._thread=thread;curThread().push({role:'user',content:q});save();setTab('コーチ');runCoach();}
+  if(thread)window._thread=thread;sub.coach='相談';curThread().push({role:'user',content:q});save();setTab('コーチ');runCoach();}
 function switchThread(name){window._thread=name;render();setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);}
 function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
 function askDiagnoseMenu(){ensurePlan();const names=D.plan.items.map(x=>x.name).join('・')||'（まだ種目なし）';
@@ -1289,14 +1382,18 @@ function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AI
    <li>右上の⚙設定 → AIコーチ にキーを貼って保存</li>
   </ol>
   <button class="btn" style="margin-top:8px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
+function coachTabs(){const s=sub.coach||'相談';
+  return `<div class="subtabs">${[['相談','💬 相談'],['処方箋','📋 処方箋']].map(([k,l])=>
+    `<button class="${k===s?'on':''}" onclick="setSub('coach','${k}')">${l}</button>`).join('')}</div>`;}
 function vCoach(){
-  if(!aiKey())return `<div class="subtabs"><button class="on">🐉 コーチ</button></div>`+coachSetup();
+  if((sub.coach||'相談')==='処方箋')return coachTabs()+vRx();
+  if(!aiKey())return coachTabs()+coachSetup();
   const cur=window._thread=window._thread||'総合';D.aiThreads=D.aiThreads||{'総合':[]};if(!Array.isArray(D.aiThreads[cur]))D.aiThreads[cur]=[];
   const names=['総合'].concat(Object.keys(D.aiThreads).filter(n=>n!=='総合'));
   const chips=`<div class="row" style="gap:6px;margin-bottom:8px;overflow-x:auto;flex-wrap:nowrap">${names.map(n=>`<button class="chip ${n===cur?'on':''}" style="flex:0 0 auto;white-space:nowrap" onclick="switchThread('${esc(n).replace(/'/g,'')}')">${n==='総合'?'💬 総合':'🏋️ '+esc(n)}</button>`).join('')}</div>`;
   const msgs=D.aiThreads[cur].map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
     ||`<div class="muted" style="text-align:center;padding:24px 8px">${cur==='総合'?'目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」':'「'+esc(cur)+'」専用スレッド。この種目のフォーム・重量設定・悩みをここで相談。<br>（トレ画面の種目カードの🐉からも開けます）'}</div>`;
-  return `<div class="subtabs"><button class="on">🐉 コーチ（${cur==='総合'?'総合':esc(cur)}）</button></div>
+  return coachTabs()+`<div class="muted" style="font-size:11px;margin:-4px 0 6px">🐉 ${cur==='総合'?'総合スレッド':esc(cur)+' のスレッド'}</div>
    ${chips}
    <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
    <div class="card">
@@ -1348,6 +1445,274 @@ async function aiTest(){const btn=document.getElementById('aiTestBtn');const old
   try{const r=await aiCall([{role:'user',content:'接続テストです。「OK」とだけ返してください。'}],{model:aiModelData(),max_tokens:20});
     alert('接続成功 ✅\n応答: '+r);}catch(e){alert('接続失敗 ❌\n'+e.message);}
   if(btn)btn.textContent=old||'接続テスト';}
+/* ============ 栄養・エネルギー収支 ============
+   BMR (basal metabolic rate／基礎代謝量)、TDEE (total daily energy expenditure／総消費エネルギー量)、
+   PFC (protein/fat/carbohydrate／タンパク質・脂質・炭水化物) を扱う。
+   ※すべて推定値。医療的な処方ではない。極端な制限にならないよう下限ガードを入れている。 */
+const ACT=[[1.2,'ほぼ座り仕事（運動はトレの分だけ）'],[1.35,'立ち仕事・よく歩く'],[1.5,'動き回る勤務（当直・病棟など）']];
+const PACE=[[0,'維持（今の体型をキープ）'],[0.10,'ゆるやか（−10%）'],[0.15,'標準（−15%）'],[0.20,'しっかり（−20%）']];
+function pfv(k,d){const v=(D.profile||{})[k];return (v===''||v==null||isNaN(+v))?d:+v;}
+function curWeight(){const m=[...(D.measures||[])].reverse().find(x=>x.weight!=null&&x.weight!=='');return m?+m.weight:null;}
+function bmr(){const p=D.profile||{};const lbm=pfv('lbm',0);
+  if(lbm>0)return Math.round(370+21.6*lbm);                       /* Katch-McArdle（除脂肪体重ベース＝InBodyがある時） */
+  const w=curWeight(),h=pfv('height',0),a=pfv('age',0);
+  if(!w||!h||!a)return null;
+  return Math.round(10*w+6.25*h-5*a+(p.sex==='男'?5:-161));}      /* Mifflin-St Jeor */
+function bmrKind(){return pfv('lbm',0)>0?'Katch-McArdle（除脂肪体重から）':'Mifflin-St Jeor（身長・年齢・体重から）';}
+function exKcal(date){const w=curWeight()||55;let k=0;
+  (D.sessions||[]).filter(s=>s.date===date).forEach(s=>{k+=5.0*w*((s.totalSec||0)/3600);});  /* 筋トレ ≒5.0 METs */
+  (D.runs||[]).filter(r=>r.date===date).forEach(r=>{k+=1.036*w*(+r.km||0);});                /* ラン ≒1kcal/kg/km */
+  return Math.round(k);}
+function tdee(date){const b=bmr();if(!b)return null;return Math.round(b*pfv('act',1.35))+exKcal(date||today());}
+function targetKcal(date){const t=tdee(date);const b=bmr();if(!t||!b)return null;
+  let k=Math.round(t*(1-pfv('pace',0.15)));
+  const floor=Math.max(b,(D.profile.sex==='男')?1500:1200);   /* 健康ガード：基礎代謝量を下回らない・極端な低カロリーにしない */
+  return Math.max(k,floor);}
+function targetPFC(date){const k=targetKcal(date);if(!k)return null;
+  const w=curWeight()||0,lbm=pfv('lbm',0);
+  let p=Math.round(lbm>0?lbm*2.4:(w?w*2.0:k*0.3/4));
+  let f=Math.max(Math.round(k*0.25/9),w?Math.round(w*0.8):0);
+  if(p*4+f*9>k*0.85){p=Math.round(k*0.3/4);f=Math.round(k*0.25/9);}  /* 炭水化物が潰れないよう調整 */
+  return {k:k,p:p,f:f,c:Math.max(0,Math.round((k-p*4-f*9)/4))};}
+const LEVEL_RATIO={'軽め':0.15,'普通':0.25,'しっかり':0.35,'食べ過ぎ':0.5,'チートデイ':0.7};
+function mealHasNut(m){return m.kcal!=null&&m.kcal!=='';}
+function mealKcal(m){if(mealHasNut(m))return +m.kcal;
+  return Math.round((targetKcal(m.date)||1800)*(LEVEL_RATIO[m.level]||0.25));}
+function dayIntake(date){const ms=D.meals.filter(x=>x.date===date);let k=0,p=0,f=0,c=0,est=0;
+  ms.forEach(m=>{k+=mealKcal(m);p+=+m.p||0;f+=+m.f||0;c+=+m.c||0;if(!mealHasNut(m))est++;});
+  return {k:Math.round(k),p:Math.round(p),f:Math.round(f),c:Math.round(c),n:ms.length,est:est};}
+function setMealNut(id,fld,v){const m=D.meals.find(x=>x.id===id);if(!m)return;
+  m[fld]=(v===''?'':(+v||0));save();render();}
+function nutReady(){return bmr()!=null;}
+function bar(label,now,goal,unit,col){
+  const pct=goal>0?Math.min(160,Math.round(now/goal*100)):0;
+  const over=goal>0&&now>goal*1.05;
+  return `<div style="margin-top:9px">
+    <div class="row" style="justify-content:space-between;font-size:12px">
+      <b>${label}</b><span class="muted"><b style="color:${over?'var(--warn)':'var(--ink)'};font-size:13px">${now}</b> / ${goal}${unit}</span></div>
+    <div style="height:9px;background:var(--chip);border-radius:5px;overflow:hidden;margin-top:3px">
+      <div style="height:100%;width:${Math.min(100,pct)}%;background:${over?'var(--warn)':col};border-radius:5px"></div></div></div>`;}
+function nutSetupCard(){return `<div class="card">
+  <h3 style="margin-top:0">⚙️ まず基礎情報を入れてね</h3>
+  <div class="muted">消費カロリーと目標値を出すには、身長・年齢・性別（と体重）が必要です。⚙設定 →「⚖️ 体・エネルギー設定」から。InBodyの除脂肪体重があれば、そちらを優先して精度が上がります。</div>
+  <button class="btn" style="margin-top:10px" onclick="openSettings()">⚙ 設定を開く</button></div>`;}
+function vNutToday(){
+  if(!nutReady())return nutSetupCard();
+  const t=today(),g=targetPFC(t),inn=dayIntake(t),out=tdee(t),b=bmr(),ex=exKcal(t);
+  const bal=inn.k-out;
+  return `<div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3 style="margin:0">📊 今日の栄養</h3>
+      <span class="muted" style="font-size:11px">${inn.n}食記録${inn.est?`・うち${inn.est}件は推定`:''}</span></div>
+    ${bar('カロリー',inn.k,g.k,'kcal','var(--accentD)')}
+    ${bar('タンパク質 P',inn.p,g.p,'g','#4da3ff')}
+    ${bar('脂質 F',inn.f,g.f,'g','var(--accent2)')}
+    ${bar('炭水化物 C',inn.c,g.c,'g','#a78bfa')}
+    <div class="kpi" style="margin-top:12px">
+      <div><b>${out}</b><span>推定消費</span></div>
+      <div><b>${inn.k}</b><span>摂取</span></div>
+      <div><b style="color:${bal>0?'var(--warn)':'var(--accentD)'}">${bal>0?'+':''}${bal}</b><span>収支</span></div>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:8px;line-height:1.7">
+      内訳：基礎代謝 ${b}kcal ×生活活動 ${pfv('act',1.35)} ＋ 今日の運動 ${ex}kcal。<br>
+      ${bmrKind()}で計算。目標は「${(PACE.find(x=>x[0]===pfv('pace',0.15))||PACE[2])[1]}」設定。<br>
+      ⚠️ すべて推定値です。数字に振り回されず、体調と採寸の変化を優先してね。</div>
+  </div>`;}
+function vNutWeek(){
+  if(!nutReady())return '';
+  const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d.toISOString().slice(0,10));}
+  const rows=days.map(d=>({d:d,inn:dayIntake(d).k,g:targetKcal(d)||0,n:D.meals.filter(x=>x.date===d).length}));
+  const max=Math.max(1,...rows.map(r=>Math.max(r.inn,r.g)))*1.1;
+  const W=320,H=120,bw=W/7;
+  const bars=rows.map((r,i)=>{const x=i*bw+bw*0.22,w=bw*0.56;
+    const h=r.n?Math.max(2,r.inn/max*H):0;const gy=H-(r.g/max*H);
+    return `<rect x="${x.toFixed(1)}" y="${(H-h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="3"
+      fill="${r.inn>r.g*1.05?'var(--warn)':'var(--accent)'}" stroke="${r.inn>r.g*1.05?'var(--warn)':'var(--accentD)'}" stroke-width="1"/>
+      <line x1="${(i*bw+bw*0.12).toFixed(1)}" y1="${gy.toFixed(1)}" x2="${(i*bw+bw*0.88).toFixed(1)}" y2="${gy.toFixed(1)}"
+      stroke="var(--sub)" stroke-width="1.5" stroke-dasharray="3 3"/>`;}).join('');
+  const labs=rows.map((r,i)=>`<text x="${(i*bw+bw/2).toFixed(1)}" y="${H+15}" text-anchor="middle" font-size="10" fill="var(--sub)" font-family="-apple-system,sans-serif">${fmtD(r.d)}</text>`).join('');
+  return `<div class="card">
+    <h3 style="margin-top:0">📈 直近7日（摂取カロリー）</h3>
+    <svg viewBox="0 0 ${W} ${H+22}" style="width:100%;height:auto">${bars}${labs}</svg>
+    <div class="muted" style="font-size:11px">棒＝摂取（推定含む）、点線＝その日の目標。<span style="color:var(--warn)">赤</span>＝目標を5%以上オーバー。</div>
+  </div>`;}
+/* ---- 処方箋のあと、実際どのくらい実行できたか ---- */
+function rxAdherence(){
+  if(!D.rx||!D.rx.date||!nutReady())return null;
+  const from=new Date(D.rx.date+'T00:00'),to=new Date(today()+'T00:00');
+  const days=Math.min(56,Math.round((to-from)/864e5));
+  if(days<3)return {days:days,tooEarly:true};
+  let logged=0,kOk=0,pOk=0,tre=0,kSum=0;
+  for(let i=1;i<=days;i++){const d=new Date(from);d.setDate(d.getDate()+i);const ds=d.toISOString().slice(0,10);
+    if(D.workouts.some(w=>w.date===ds)||(D.sessions||[]).some(s=>s.date===ds))tre++;
+    if(!D.meals.some(m=>m.date===ds))continue;
+    logged++;const inn=dayIntake(ds),g=targetPFC(ds);kSum+=inn.k;
+    if(g){if(Math.abs(inn.k-g.k)<=g.k*0.15)kOk++;if(inn.p>=g.p*0.8)pOk++;}}
+  return {days:days,logged:logged,kOk:kOk,pOk:pOk,tre:tre,
+    perWeek:Math.round(tre/days*7*10)/10,
+    avgK:logged?Math.round(kSum/logged):0,
+    logRate:Math.round(logged/days*100),
+    kRate:logged?Math.round(kOk/logged*100):0,
+    pRate:logged?Math.round(pOk/logged*100):0};}
+function adhBar(label,pct,note){
+  const col=pct>=70?'var(--accentD)':pct>=40?'var(--accent2)':'var(--warn)';
+  return `<div style="margin-top:9px"><div class="row" style="font-size:12px">
+    <b>${label}</b><span style="color:${col};font-weight:800">${pct}%</span></div>
+    <div style="height:8px;background:var(--chip);border-radius:4px;overflow:hidden;margin-top:3px">
+      <div style="height:100%;width:${Math.min(100,pct)}%;background:${col};border-radius:4px"></div></div>
+    ${note?`<div class="muted" style="font-size:11px;margin-top:2px">${note}</div>`:''}</div>`;}
+function vAdherence(){
+  const a=rxAdherence();if(!a)return '';
+  if(a.tooEarly)return `<div class="card"><h3 style="margin-top:0">📈 実行できてる率</h3>
+    <div class="muted">処方箋を出してから${a.days}日。あと${3-a.days}日ぶん記録がたまると出ます。</div></div>`;
+  const worst=Math.min(a.kRate,a.pRate);
+  return `<div class="card">
+    <div class="row"><h3 style="margin:0">📈 実行できてる率</h3><span class="muted" style="font-size:11px">処方から${a.days}日</span></div>
+    ${adhBar('食事を記録した日',a.logRate,`${a.days}日中 ${a.logged}日`)}
+    ${adhBar('カロリーが目標±15%',a.kRate,`記録した日の平均 ${a.avgK}kcal`)}
+    ${adhBar('タンパク質が目標の8割以上',a.pRate,'')}
+    ${adhBar('トレの頻度',Math.min(100,Math.round(a.perWeek/3*100)),`週 ${a.perWeek}回ペース（${a.days}日で${a.tre}回）`)}
+    ${worst<60?`<div class="note-warn" style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:11px;font-size:12.5px;line-height:1.7">
+      <b>守れてない＝あなたが悪いんじゃなくて、処方が生活に合ってない</b>可能性が高いです。当直・外食・疲労を織り込んだ現実的な処方に、コーチが組み直します。
+      <button class="btn sm" style="width:100%;margin-top:8px" onclick="reviseRx()">🐉 この実績で処方箋を調整してもらう</button></div>`
+      :`<div class="muted" style="font-size:12px;margin-top:10px">いいペース。この調子で続けて、4週たったら採寸の変化と合わせて見直そう。</div>`}
+  </div>`;}
+async function reviseRx(){
+  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  const a=rxAdherence();if(!a||a.tooEarly)return;
+  window._rxBusy=true;render();
+  const sys=`あなたは${D.profile.name||'ユーザー'}さん専属の栄養・運動コーチ。前回出した処方箋が守れていないので、**処方のほうを現実に合わせて組み直す**のが今回の仕事。
+【最重要の姿勢】守れなかったことを本人の責任にしない。「続けられない処方は処方が悪い」という前提で、ハードルを具体的に下げる。責める・煽る・罪悪感を持たせる表現は禁止。
+【出力】マークダウンで、必ずこの4つの見出し：
+## 🔍 なぜ守れなかったか（仮説）
+## 🍽 組み直した栄養の処方
+## 🏋️ 組み直した運動の処方
+## 📌 今週これだけ守れればOK（1つだけ）
+【条件】
+- 記録が続かないなら「記録を減らす」提案も可（例：夜にタンパク質だけ確認する運用に切り替える）
+- 頻度が足りないなら種目数・時間を削って回数を確保する方向で
+- 極端な制限は絶対に勧めない。基礎代謝を下回る設定にしない
+- 相手は当直のある研修医。忙しい週の最低ラインを具体的に
+- 制御行（NOTE[]やMEMO:）は使わない
+${coachLogText()}${aiContext()}`;
+  const prev=(D.rx&&D.rx.text)||'（なし）';
+  try{const ans=await aiCallRetry([{role:'user',content:
+    `【前回の処方箋（${D.rx.date}）】\n${prev.slice(0,1800)}\n\n【そのあと${a.days}日の実績】\n・食事を記録できた日：${a.days}日中${a.logged}日（${a.logRate}%）\n・カロリーが目標±15%に収まった日：${a.kRate}%（記録日の平均 ${a.avgK}kcal／目標 ${targetKcal(today())}kcal）\n・タンパク質が目標の8割以上だった日：${a.pRate}%\n・トレの頻度：週${a.perWeek}回ペース（${a.days}日で${a.tre}回）\n\nこの実績を見て、続けられる形に処方を組み直して。`}],
+    {system:sys,model:aiModelChat(),max_tokens:4000});
+    D.rx={date:today(),text:(ans||'').replace(/^\s*(MEMO|NOTE)[\[［:：].*$/gmi,'').trim(),revised:true};}
+  catch(e){alert('調整に失敗しました：'+e.message);}
+  window._rxBusy=false;save();render();}
+/* ---- 夜に「タンパク質だけ」確認する導線（全部追うのはしんどいので1項目に絞る）---- */
+function vProteinFocus(){
+  if(!nutReady())return '';
+  const h=new Date().getHours();if(h<18)return '';
+  const t=today(),g=targetPFC(t),i=dayIntake(t);
+  if(!i.n)return '';
+  const left=Math.max(0,g.p-i.p);const pct=Math.round(i.p/g.p*100);
+  const done=left<=0;
+  return `<div class="card" style="border:2px solid ${done?'var(--accentD)':'var(--accent2)'};background:${done?'rgba(198,242,78,.12)':'rgba(223,111,14,.06)'}">
+    <div class="tag" style="font-size:10px;letter-spacing:.12em;color:var(--sub);font-weight:800">今夜チェックするのはここだけ</div>
+    <div class="row" style="align-items:flex-end;margin-top:4px">
+      <div><span style="font-size:30px;font-weight:800;line-height:1.1">${i.p}</span><span style="font-size:15px;font-weight:800"> / ${g.p}g</span>
+        <div style="font-size:13px;font-weight:800;color:var(--sub)">タンパク質 protein</div></div>
+      <div style="text-align:right">${done?'<span class="pill ok" style="font-size:13px">✓ 達成</span>':`<b style="font-size:17px;color:var(--accent2)">あと ${left}g</b>`}</div></div>
+    <div style="height:10px;background:var(--chip);border-radius:5px;overflow:hidden;margin-top:8px">
+      <div style="height:100%;width:${Math.min(100,pct)}%;background:${done?'var(--accentD)':'var(--accent2)'};border-radius:5px"></div></div>
+    ${done?'<div class="muted" style="margin-top:7px">今日はOK。あとは寝るだけ。</div>'
+      :`<div class="muted" style="margin-top:7px;line-height:1.7">あと${left}gの目安：${proteinIdea(left)}</div>`}
+  </div>`;}
+function proteinIdea(g){
+  const ideas=[[25,'プロテイン1杯（約20〜25g）'],[20,'ギリシャヨーグルト1個＋卵1個（約20g）'],[15,'卵2個（約12g）や、ちくわ2本＋チーズ'],[8,'卵1個か、チーズ1個（約7〜8g）']];
+  const hit=ideas.find(x=>g>=x[0]);
+  if(!hit)return 'ほぼ達成。無理に足さなくて大丈夫';
+  if(g>=45)return 'プロテイン1杯＋鶏むね100g（約45g）くらい。難しければ明日に回してOK';
+  return hit[1]+'くらい';}
+/* ---- 処方箋（コーチのサブタブ）---- */
+function bmiOf(w){const h=pfv('height',0)/100;return (h>0&&w>0)?(w/(h*h)):0;}
+function vRx(){
+  const p=D.profile||{};const tg=p.targets||{};
+  const cw=curWeight(),tw=+tg.weight||0;
+  const bmiNow=bmiOf(cw||0),bmiT=bmiOf(tw);
+  const warn=(tw>0&&bmiT<18.5)?`<div class="card" style="border-color:var(--warn);background:rgba(229,72,77,.06)">
+    <b style="color:var(--warn)">⚠️ 目標体重が低すぎるかも</b>
+    <div class="muted" style="margin-top:4px">目標 ${tw}kg は BMI (body mass index／体格指数) ${bmiT.toFixed(1)} で、低体重の範囲（18.5未満）です。無月経・骨密度低下・筋量減少のリスクがあるので、目標をもう一度考えてみてほしい。見た目の引き締まりは体重より<b>体脂肪率と筋量</b>で決まります（＝体重を落とさなくても達成できる）。</div></div>`:'';
+  const g=nutReady()?targetPFC(today()):null;
+  const eta=(()=>{if(!cw||!tw||tw>=cw||!nutReady())return '';
+    const deficit=tdee(today())-targetKcal(today());
+    if(deficit<=50)return '<div class="muted" style="font-size:12px;margin-top:6px">今は「維持」設定なので、体重の減少は見込みません。</div>';
+    const wk=Math.ceil((cw-tw)*7200/deficit/7);
+    return `<div class="muted" style="font-size:12px;margin-top:6px">今のペースなら <b>${cw}kg → ${tw}kg</b> におよそ <b>${wk}週間</b>（1日あたり約${deficit}kcalの赤字。体脂肪1kg≒7200kcalで単純計算）。※期限は設けない方針なので、目安として見てね。</div>`;})();
+  return `${warn}
+  <div class="card">
+    <h3 style="margin-top:0">🎯 目標の体型</h3>
+    <label>ことばで（コーチが一番参考にする）</label>
+    <textarea id="rxGoal" class="exmemo" oninput="autoGrow(this)" placeholder="例：くびれと腹筋のラインを出しつつ、肩と背中に丸みが欲しい。体重は落とさなくていい" style="min-height:52px">${esc(p.goal||'')}</textarea>
+    <label style="margin-top:8px">目標の数値（任意・入れた分だけ使われる）</label>
+    <div class="row">
+      ${MFIELDS.map(([k,l,u])=>`<div style="flex:1 1 30%"><label style="margin:2px 0">${l}（${u}）</label>
+        <input id="rx_${k}" type="number" inputmode="decimal" value="${tg[k]!=null?tg[k]:''}" placeholder="${u}"></div>`).join('')}
+    </div>
+    <button class="btn sm ghost" style="width:100%;margin-top:10px" onclick="saveRxGoal()">目標を保存</button>
+    ${eta}
+    ${cw&&bmiNow?`<div class="muted" style="font-size:11px;margin-top:6px">現在：${cw}kg（BMI ${bmiNow.toFixed(1)}）</div>`:''}
+  </div>
+  ${nutReady()?`<div class="card">
+    <h3 style="margin-top:0">🧮 いまの計算値（自動）</h3>
+    <div class="mspec"><span>基礎代謝</span><div>${bmr()} kcal／日　<span class="muted">${bmrKind()}</span></div></div>
+    <div class="mspec"><span>推定消費</span><div>${tdee(today())} kcal（今日／生活活動＋運動こみ）</div></div>
+    <div class="mspec"><span>目標摂取</span><div><b>${g.k} kcal</b>　P ${g.p}g ／ F ${g.f}g ／ C ${g.c}g</div></div>
+    <div class="muted" style="font-size:11px;margin-top:8px">この数字を材料にコーチが処方箋を書きます。ペースや活動量は⚙設定で変えられます。</div>
+  </div>`:nutSetupCard()}
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <h3 style="margin:0">📋 処方箋</h3>
+      ${D.rx&&D.rx.text?`<span class="muted" style="font-size:11px">${fmtD(D.rx.date)} 発行</span>`:''}</div>
+    ${window._rxBusy?'<div class="muted" style="margin-top:8px">🐉 書いてるところ…（少し時間がかかります）</div>'
+      :(D.rx&&D.rx.text?`<div style="font-size:13.5px;line-height:1.8;margin-top:8px">${mdToHtml(D.rx.text)}</div>
+        <button class="btn sm gray" style="width:100%;margin-top:10px" onclick="makeRx()">↻ 出し直す（今の記録で）</button>`
+      :`<div class="muted" style="margin-top:6px">目標体型・採寸・トレ記録・食事・体調周期・筋肉痛をぜんぶ渡して、<b>栄養の処方</b>（1日の目安・食事の組み立て方・サプリ）と<b>運動の処方</b>（週の分割・種目・頻度・強度）を書いてもらいます。</div>
+        <button class="btn" style="margin-top:10px" onclick="makeRx()">🐉 処方箋を出してもらう</button>`)}
+    <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">${D.rx&&D.rx.revised?'↻ 実績にあわせて組み直した版です。<br>':''}⚠️ これは医療的な処方ではなく、一般的な栄養・運動の情報です。体調が悪い時・生理が止まった時・持病がある時は、数字より体を優先して、必要なら医療機関に相談してね。</div>
+  </div>
+  ${vAdherence()}`;}
+function saveRxGoal(){D.profile.goal=(document.getElementById('rxGoal').value||'').trim();
+  D.profile.targets=D.profile.targets||{};
+  MFIELDS.forEach(([k])=>{const el=document.getElementById('rx_'+k);if(!el)return;const v=el.value;
+    if(v==='')delete D.profile.targets[k];else D.profile.targets[k]=+v;});
+  save();alert('保存しました');render();}
+async function makeRx(){
+  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  window._rxBusy=true;render();
+  const g=nutReady()?targetPFC(today()):null;const tg=(D.profile||{}).targets||{};
+  const tgTxt=MFIELDS.filter(([k])=>tg[k]!=null).map(([k,l,u])=>`${l}${tg[k]}${u}`).join(' / ')||'（数値目標なし）';
+  const numbers=nutReady()
+    ?`基礎代謝 ${bmr()}kcal（${bmrKind()}）／推定消費 ${tdee(today())}kcal/日／目標摂取 ${g.k}kcal（P${g.p}g F${g.f}g C${g.c}g）／現体重 ${curWeight()||'不明'}kg`
+    :'（基礎情報が未入力のため数値は未算出）';
+  const sys=`あなたは${D.profile.name||'ユーザー'}さん専属の、栄養と運動の専門コーチ。相手は整形外科志望の医療従事者で、解剖学・生理学的に正確で具体的な説明を好む。
+【出力形式】マークダウンで、必ずこの4つの見出しを使う：
+## 🍽 栄養の処方
+## 🏋️ 運動の処方
+## 📌 いま一番効くこと（1つだけ）
+## ⏱ 次に見直すタイミング
+【書き方】
+- アプリが計算した数値を土台に、「何をどう食べるか」「週をどう組むか」を具体的に。1日の食事例（朝/昼/夜/間食のPFC配分）と、週の分割（例：押す/引く/脚）・頻度・レップ域・漸進のさせ方まで落とす
+- 目標体型の記述を最優先で読む。体重より体脂肪率と筋量・部位のバランスで語る
+- カロリー収支・部分痩せ不可などの一般論の説明は不要（本人は分かっている）。結論と具体だけ
+- 相手は当直のある研修医。忙しい週・寝不足の週の「最低ライン」も1行入れる
+- 生理周期があるなら、周期に応じた強度の調整に一言触れる
+【禁止・安全】
+- 極端な制限（絶食・単品ダイエット・基礎代謝を下回る設定・急速な減量）は絶対に勧めない
+- 体型や体重を否定的に評価しない。数値目標が低すぎる場合はそれを指摘する
+- 「〜すべき」と断定しすぎず、医療的処方ではないことを踏まえる（ただし毎回長い免責は書かない。アプリ側に表示済み）
+- NOTE[]やMEMO:の制御行は使わない
+${coachLogText()}${aiContext()}`;
+  try{const ans=await aiCallRetry([{role:'user',content:
+    `【目標体型（本人のことば）】${D.profile.goal||'（未記入）'}\n【目標の数値】${tgTxt}\n【アプリの計算値】${numbers}\n【減量ペース設定】${(PACE.find(x=>x[0]===pfv('pace',0.15))||PACE[2])[1]}\n\n上を踏まえて、私の処方箋を書いて。`}],
+    {system:sys,model:aiModelChat(),max_tokens:4000});
+    D.rx={date:today(),text:(ans||'').replace(/^\s*(MEMO|NOTE)[\[［:：].*$/gmi,'').trim()};}
+  catch(e){D.rx={date:today(),text:'⚠️ 処方箋を作れませんでした（'+e.message+'）\n\n「↻ 出し直す」でもう一度試せます。'};}
+  window._rxBusy=false;save();render();}
+
 /* ============ 解剖ページ ============
    図＝オリジナルSVG（イメージ補助）／事実（起始・停止・作用・支配神経）＝テキストが正。
    市販の解剖アトラス等の著作物は一切使用していない。 */
