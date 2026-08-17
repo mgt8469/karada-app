@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.3</title>
+<title>カラダ管理 v7.4</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -1413,7 +1413,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.3（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.4（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2993,10 +2993,9 @@ ensureBoard();stampCoach();_coachInit=true;
   if(inp)inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();v7Send();}});
 })();
-render();
-goPage(0,false);
-setTimeout(()=>goPage(0,false),60);
-window.addEventListener('resize',()=>goPage(_page,false));
+/* ★ 起動（render の初回呼び出し）は v7edit.js の末尾に移した。
+   ここで呼ぶと、後から定義される const（PSEUDO_HOUR 等）が
+   まだ初期化されておらず ReferenceError で画面が真っ白になる */
 
 /* =====================================================================
    v7.3
@@ -3008,7 +3007,7 @@ window.addEventListener('resize',()=>goPage(_page,false));
 /* ---------- ① 並び順：実質の時刻 ---------- */
 /* 記録に時刻が無いものは、種類から「だいたいこの時間」を当てて並べる。
    同じ時刻なら、あとから記録したものを上にする（seq が大きいほど新しい） */
-const PSEUDO_HOUR={朝:7,間食:15,昼:12,夜:19};
+var PSEUDO_HOUR={朝:7,間食:15,昼:12,夜:19};
 function evHour(kind,extra){
   if(kind==='meal')return PSEUDO_HOUR[extra]!=null?PSEUDO_HOUR[extra]:13;
   return {sup:8,measure:7,cond:7,sore:9,workout:17,run:18,note:22,coach:20}[kind]||12;
@@ -3074,10 +3073,10 @@ function favAdd(i){
 }
 
 /* ---------- ③ 「直す」を全種類に ---------- */
-const EDIT_TITLE={workout:'🏋️ トレの記録',run:'🏃 ランの記録',measure:'📏 採寸',
+var EDIT_TITLE={workout:'🏋️ トレの記録',run:'🏃 ランの記録',measure:'📏 採寸',
   cond:'💗 体調',sore:'🔥 筋肉痛',sup:'💊 サプリ',note:'📝 ひとこと',
   coach:'💬 やりとり',sess:'⏱ トレ終了'};
-const EDIT_ARR={workout:'workouts',run:'runs',measure:'measures',cond:'conditions',
+var EDIT_ARR={workout:'workouts',run:'runs',measure:'measures',cond:'conditions',
   sore:'soreness',sup:'supLogs',sess:'sessions'};
 
 function editFind(kind,id){
@@ -3324,6 +3323,17 @@ function renderEdit(){
     </div>`;
   setTimeout(()=>sh.querySelectorAll('.exmemo').forEach(autoGrow),20);
 }
+
+
+/* =====================================================================
+   ★ 起動はここ（すべての定義が終わったあと）
+   ここより上で render() を呼ぶと、まだ初期化されていない宣言に触れて
+   ReferenceError になり、画面が描けなくなる（v7.3 で実際にやってしまった）
+   ===================================================================== */
+render();
+goPage(0,false);
+setTimeout(()=>goPage(0,false),60);
+window.addEventListener('resize',()=>goPage(_page,false));
 </script>
 </body>
 </html>
