@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.1</title>
+<title>カラダ管理 v7.2</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -240,6 +240,14 @@
   .rbtn{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 10px;
     font-size:14px;font-weight:700;cursor:pointer;color:var(--ink);font-family:inherit;box-shadow:var(--shadow)}
   .rbtn span{display:block;font-size:23px;margin-bottom:6px}
+  /* --- 食事の編集シート --- */
+  .nut4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:4px}
+  .nut4 label{margin:0 0 2px;font-size:11px;text-align:center}
+  .nut4 input{padding:10px 2px;text-align:center;font-weight:800;font-size:16px}
+  .mealph{width:100%;max-height:260px;object-fit:cover;border-radius:11px;background:var(--card2);display:block}
+  .tlbody.tap{cursor:pointer}
+  .tlbody.tap:active{background:var(--card2)}
+  .editmark{float:right;font-size:11px;color:var(--accentD);font-weight:800}
 </style>
 </head>
 <body>
@@ -284,9 +292,10 @@
 </div>
 <nav id="nav"></nav>
 
-<!-- 記録シート / 検索シート -->
+<!-- 記録シート / 検索シート / 食事の編集シート -->
 <div class="sheet" id="recSheet"></div>
 <div class="sheet" id="searchSheet"></div>
+<div class="sheet" id="mealSheet"></div>
 
 <!-- 設定シート -->
 <div class="sheet" id="settingsSheet"></div>
@@ -1003,16 +1012,19 @@ async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);i
   const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
   const b64=im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'');
   const sup=D.supList.map(s=>s.name+(s.count?`(いつも${s.count}${supUnit(s)})`:'')).join('・');
-  const prompt=`この食事写真を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。\n\n最後に必ず、次の形式の1行だけを付けてください（アプリがグラフに使います。画面には表示されません。幅ではなく中央値の整数で）：\nDATA: kcal=520, p=32, f=18, c=55`;
+  const prompt=`この食事写真を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。\n\n最後に必ず、次の2行を付けてください（アプリが使います。画面には表示されません）：\nFOOD: 鶏むね150g・玄米150g・サラダ\nDATA: kcal=520, p=32, f=18, c=55\n※FOOD は写真から読み取った食材と分量を簡潔に。DATA は幅ではなく中央値の整数で。`;
   try{const r=await aiCall([{role:'user',content:[{type:'text',text:prompt},{type:'image',source:{type:'base64',media_type:mt,data:b64}}]}],{model:aiModelData(),max_tokens:700});
     let txt=r,got=false;
+    const _fm=txt.match(/^\s*FOOD\s*[:：]\s*(.+)$/mi);
+    if(_fm&&_fm[1].trim()&&!(m.memo||'').trim())m.memo=_fm[1].trim();
+    txt=txt.replace(/^\s*FOOD\s*[:：].*$/mi,'');
     txt=txt.replace(/^\s*DATA\s*[:：].*$/mi,function(line){
       const g=k=>{const mm=line.match(new RegExp(k+'\\s*[=:：]\\s*(\\d+(?:\\.\\d+)?)','i'));return mm?Math.round(+mm[1]):null;};
       const kc=g('kcal'),pp=g('p'),ff=g('f'),cc=g('c');
       if(kc){m.kcal=kc;got=true;}
       if(pp!=null)m.p=pp;if(ff!=null)m.f=ff;if(cc!=null)m.c=cc;
       return '';}).replace(/\n{3,}/g,'\n\n').trim();
-    m.aiNote=txt+(got?'\n\n📊 カロリー・PFCをグラフに反映しました（違ってたら「✏️ 栄養を手入力」で直せます）':'');
+    m.aiNote=txt+(got?'\n\n📊 カロリー・PFCを反映しました（食材が違ってたら、タイムラインでこの食事をタップ →「食べたもの」を直して計算し直せます）':'');
     save();render();}
   catch(e){m.aiNote='⚠️ '+e.message;save();render();}}
 async function delMeal(id){const m=D.meals.find(x=>x.id===id);if(m&&m.photoId)await imgDel(m.photoId);D.meals=D.meals.filter(x=>x.id!==id);save();render();}
@@ -1351,7 +1363,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.1（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.2（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2270,6 +2282,186 @@ function jumpFromSearch(){
   jumpToDate(ds);
 }
 
+/* ---------- 食事の編集シート（AIの食材ミスを本人が直す）---------- */
+function openMeal(id){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  _sheet='meal';window._mealEdit=id;
+  document.getElementById('mealSheet').classList.add('on');
+  renderMeal();
+}
+function closeMeal(){
+  _sheet=null;window._mealEdit=null;
+  document.getElementById('mealSheet').classList.remove('on');
+  render();
+}
+function mealSet(id,field,v){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m[field]=v;save();
+  /* 入力中に描き直すとカーソルが飛ぶので、ここでは保存だけ */
+}
+/* 数値は保存だけ。ここで再描画すると次の欄に移った瞬間にフォーカスが飛ぶ */
+function mealSetNum(id,field,v){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m[field]=(v===''||v==null)?'':(+v);save();
+  const pill=document.getElementById('mealNutPill');
+  if(pill){const has=mealHasNut(m);pill.className='pill'+(has?' ok':'');
+    pill.textContent=has?'この数値で集計中':'ボリューム感からの推定';}
+}
+function mealSetLevel(id,lv){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m.level=lv;save();renderMeal();
+}
+function mealClearNut(id){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m.kcal='';m.p='';m.f='';m.c='';save();renderMeal();
+}
+async function mealDelete(id){
+  if(!confirm('この食事の記録を消す？'))return;
+  await delMeal(id);
+  closeMeal();
+}
+function renderMeal(){
+  const id=window._mealEdit;
+  const m=(D.meals||[]).find(x=>x.id===id);
+  const sh=document.getElementById('mealSheet');if(!sh)return;
+  if(!m){sh.classList.remove('on');_sheet=null;render();return;}
+  const has=mealHasNut(m);
+  const busy=/分析中|計算中/.test(m.aiNote||'');
+  sh.innerHTML=`
+   <div class="sheetbar"><b>🍽 食事を直す</b><button class="close" onclick="closeMeal()">✕</button></div>
+   <div class="wrap" style="padding-top:14px;padding-bottom:40px">
+     ${m.photoId?`<img class="mealph" data-pid="${m.photoId}" alt="食事写真">`:''}
+     <div class="card" style="margin-top:${m.photoId?'12px':'0'}">
+       <h3 style="margin-top:0">食べたもの</h3>
+       <div class="muted" style="margin-bottom:6px">AIが食材を取り違えていたら、ここを正しく書き直してから下の「計算し直す」を押してね。<b>写真よりこの文章を正として計算します。</b></div>
+       <textarea id="mealMemo" class="exmemo" oninput="autoGrow(this)" onchange="mealSet('${m.id}','memo',this.value)"
+         placeholder="例：鶏むね150g・玄米1杯・サラダ（ノンオイル）" style="min-height:70px">${esc(m.memo||'')}</textarea>
+       ${(!((m.memo||'').trim())&&aiFoodGuess(m))?`<div class="banner" style="margin-top:8px">
+         AIはこう見ています：<b>${esc(aiFoodGuess(m))}</b>
+         <button class="btn sm ghost" style="width:100%;margin-top:7px" onclick="useAiFood('${m.id}')">この文を上の欄に入れて直す</button></div>`:''}
+       <div class="flex2" style="margin-top:9px">
+         <div><label>日付</label>
+           <input type="date" value="${esc(m.date||today())}" onchange="mealSetNumSafe('${m.id}','date',this.value)"></div>
+         <div><label>いつ</label>
+           <select onchange="mealSetNumSafe('${m.id}','type',this.value)">
+             ${['朝','昼','夜','間食'].map(x=>`<option ${x===m.type?'selected':''}>${x}</option>`).join('')}
+           </select></div>
+       </div>
+       <label>量の感覚</label>
+       <div class="row">${LEVELS.map(l=>
+         `<button class="chip ${l===m.level?'on':''}" onclick="mealSetLevel('${m.id}','${l}')">${l}</button>`).join('')}</div>
+     </div>
+
+     <div class="card">
+       <div class="row" style="justify-content:space-between;align-items:center">
+         <h3 style="margin:0">栄養の数値</h3>
+         <span id="mealNutPill" class="pill ${has?'ok':''}" style="font-size:11px">${has?'この数値で集計中':'ボリューム感からの推定'}</span></div>
+       <div class="nut4">
+         ${[['kcal','kcal'],['p','P (g)'],['f','F (g)'],['c','C (g)']].map(([k,l])=>
+           `<div><label>${l}</label><input type="number" inputmode="decimal"
+             value="${m[k]!=null&&m[k]!==''?m[k]:''}" onchange="mealSetNum('${m.id}','${k}',this.value)"></div>`).join('')}
+       </div>
+       <div class="muted" style="font-size:11.5px;margin-top:7px">
+         数字を直せばそのままグラフに反映されます。${has?'空にすると「ボリューム感からの推定」に戻ります。':''}</div>
+       <button class="btn ${busy?'gray':''}" style="margin-top:11px" ${busy?'disabled':''} onclick="recalcMeal('${m.id}')">
+         ${busy?'計算中…':'🐉 この内容で計算し直す'}</button>
+       ${has?`<button class="btn sm gray" style="width:100%;margin-top:7px" onclick="mealClearNut('${m.id}')">数値をクリア（推定に戻す）</button>`:''}
+       <div class="muted" style="font-size:11px;margin-top:7px">⚠️ すべて推定値です。数字に振り回されず、体調と採寸の変化を優先してね。</div>
+     </div>
+
+     ${m.aiNote?`<div class="card"><div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">🐉 コーチの見立て</h3>
+        <button class="del" onclick="mealSet('${m.id}','aiNote','');renderMeal()">消す</button></div>
+       <div style="font-size:13px;line-height:1.75;white-space:pre-wrap;margin-top:6px">${esc(m.aiNote)}</div></div>`:''}
+
+     <button class="btn warn" onclick="mealDelete('${m.id}')">この記録を削除</button>
+   </div>`;
+  loadCalThumbs(sh);
+  setTimeout(()=>{const t=document.getElementById('mealMemo');if(t)autoGrow(t);},20);
+}
+/* AIの考察文から「何を食べたか」の1行を拾う（本人が直す元ネタにする） */
+function aiFoodGuess(m){
+  const n=(m&&m.aiNote)||'';if(!n||/分析中|計算中|^⚠️/.test(n))return '';
+  const f=n.match(/^\s*FOOD\s*[:：]\s*(.+)$/mi);
+  if(f)return f[1].trim().slice(0,120);
+  /* FOOD行が無い古い記録は、見出し記号などを外した最初の中身のある行を使う */
+  const line=n.split('\n').map(x=>x.replace(/^[\s0-9.)、･・\-*#>]+/,'').trim())
+    .find(x=>x.length>=4&&!/^(📊|⚠️|DATA)/.test(x));
+  return line?line.slice(0,120):'';
+}
+function useAiFood(id){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m.memo=aiFoodGuess(m);save();renderMeal();
+  setTimeout(()=>{const t=document.getElementById('mealMemo');
+    if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},40);
+}
+/* 文字列フィールド（日付・種類）はそのまま入れて再描画 */
+function mealSetNumSafe(id,field,v){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m[field]=v;save();renderMeal();
+}
+
+/* 本人が直した内容を正として、カロリーとPFCを計算し直す */
+async function recalcMeal(id){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  const memoEl=document.getElementById('mealMemo');
+  if(memoEl){m.memo=memoEl.value;}
+  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!(m.memo||'').trim()){alert('「食べたもの」を書いてから押してね');return;}
+  m.aiNote='🍽️ 計算中…';save();renderMeal();
+
+  const sysGuard='あなたは栄養の計算役です。極端な制限（絶食・単品ダイエット・基礎代謝を下回る設定・急速な減量）は絶対に勧めない。'
+    +'体型や体重を否定的に評価しない。食べたものを責めたり罪悪感を持たせる表現は禁止。簡潔に。';
+  const lines=[
+    '次の食事のカロリーとPFCを見積もってください。',
+    '',
+    '【本人が確認・修正した内容（これを正とする）】',
+    (m.memo||'').trim(),
+    '量の感覚：'+(m.level||'普通'),
+    '',
+    '※写真を添える場合、写真は分量の目安にだけ使ってよいが、'
+      +'食材・料理の種類が本人の記述と食い違うときは必ず本人の記述を優先すること。',
+    '',
+    '出力は日本語で、次の2つだけ：',
+    '1) 内訳（例：鶏むね150g ≒ 165kcal / P33g …）を3〜5行で簡潔に',
+    '2) 目標（'+(D.profile.goal||'筋肉を保ちつつ引き締め')+'）に対して一言',
+    '',
+    '最後に必ず、次の2行を付けてください（アプリが使います。画面には出ません）：',
+    'FOOD: 鶏むね150g・玄米150g・サラダ',
+    'DATA: kcal=520, p=32, f=18, c=55',
+    '※FOOD は本人の記述をそのまま整えたもの。勝手に食材を足したり替えたりしないこと。',
+    '※DATA は幅ではなく中央値の整数で。'
+  ];
+  const content=[{type:'text',text:lines.join('\n')}];
+  try{
+    if(m.photoId){
+      const imgs=await imgAll();const im=imgs.find(o=>o.id===m.photoId);
+      if(im&&im.dataUrl){
+        const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
+        content.push({type:'image',source:{type:'base64',media_type:mt,
+          data:im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}});
+      }
+    }
+    const r=await aiCallRetry([{role:'user',content:content}],
+      {model:aiModelData(),max_tokens:700,system:sysGuard});
+    let got=false;
+    const fm=r.match(/^\s*FOOD\s*[:：]\s*(.+)$/mi);
+    if(fm&&fm[1].trim())m.memo=fm[1].trim();
+    const txt=r.replace(/^\s*FOOD\s*[:：].*$/mi,'').replace(/^\s*DATA\s*[:：].*$/mi,function(line){
+      const g=k=>{const mm=line.match(new RegExp(k+'\\s*[=:：]\\s*(\\d+(?:\\.\\d+)?)','i'));return mm?Math.round(+mm[1]):null;};
+      const kc=g('kcal'),pp=g('p'),ff=g('f'),cc=g('c');
+      if(kc){m.kcal=kc;got=true;}
+      if(pp!=null)m.p=pp;if(ff!=null)m.f=ff;if(cc!=null)m.c=cc;
+      return '';}).replace(/\n{3,}/g,'\n\n').trim();
+    m.aiNote=txt+(got?'\n\n📊 この内容で計算し直しました。まだ違っていたら上の数字を直接直してね。'
+                     :'\n\n⚠️ 数値を読み取れませんでした。上の欄に手で入れてね。');
+    save();renderMeal();
+  }catch(e){
+    m.aiNote='⚠️ '+e.message+'\n（数値は上の欄に手入力でも入れられます）';
+    save();renderMeal();
+  }
+}
+
 /* ---------- 入力バー ---------- */
 function v7Send(){
   const el=document.getElementById('v7in');if(!el)return;
@@ -2534,9 +2726,18 @@ function v7Events(days){
   (D.sessions||[]).forEach(s=>push(s.date,s.endTs||0,'⏱',
     `<b>トレ終了</b> <span class="muted">${fmtMin(s.totalSec)}・${(s.items||[]).length}種目</span>`,'workout'));
   (D.meals||[]).forEach(m=>push(m.date,0,'🍽',
-    `<b>${esc(m.type||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
-      mealHasNut(m)?` <span class="muted">${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g</span>`:''}${
-      m.memo?`<div style="margin-top:3px">${esc(m.memo)}</div>`:''}`,'meal'));
+    `<div onclick="openMeal('${m.id}')" style="cursor:pointer">
+      <span class="editmark">✏️ 直す</span>
+      <b>${esc(m.type||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
+      mealHasNut(m)?` <span class="muted">${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g</span>`
+                   :` <span class="muted">約${mealKcal(m)}kcal（推定）</span>`}${
+      (m.memo||'').trim()
+        ?`<div style="margin-top:3px">${esc(m.memo)}</div>`
+        :(aiFoodGuess(m)
+          ?`<div style="margin-top:3px">${esc(aiFoodGuess(m))}<span class="muted" style="font-size:11px"> ← AIの読み取り</span></div>`
+          :'<div class="muted" style="margin-top:3px">（内容なし）</div>')}
+      ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真" style="max-height:150px;margin-top:7px">`:''}
+    </div>`,'meal'));
   (D.measures||[]).forEach(x=>{
     const t=MFIELDS.filter(f=>x[f[0]]!=null&&x[f[0]]!=='').map(f=>`${f[1]} ${x[f[0]]}${f[2]}`).join('　');
     push(x.date,0,'📏',`<b>採寸</b> ${esc(t)||''}${x.memo?`<div class="muted">${esc(x.memo)}</div>`:''}`,'measure');});
@@ -2643,6 +2844,8 @@ render=function(){
       sb.style.visibility=(active&&_page===0)?'hidden':'visible';}
     startSessTick();
   }
+  if(_sheet==='rec')renderRec();
+  if(_sheet==='search')renderSearch();
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
 };
 
