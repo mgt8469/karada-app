@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.4</title>
+<title>カラダ管理 v7.5</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -267,6 +267,16 @@
   .tlbody .mdp,.cbub .mdp{font-size:14px}
   .cbub.assistant{max-width:94%}
   #favSheet .card,#editSheet .card{margin-bottom:10px}
+  /* --- 食事の新規記録（カメラを主役に）--- */
+  .camzone{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    text-align:center;background:var(--card);border:2px dashed var(--accentD);border-radius:var(--r);
+    padding:34px 18px;cursor:pointer}
+  .camzone:active{background:var(--card2)}
+  .camzone b{font-size:17px}
+  .camic{font-size:40px;line-height:1}
+  /* コーチ／自分のアイコン（絵文字をやめた） */
+  .tlic .nic{width:17px;height:17px;color:var(--accentD)}
+  .tlic .tlme{font-size:12px;font-weight:800;color:#16181c}
 </style>
 </head>
 <body>
@@ -317,6 +327,7 @@
 <div class="sheet" id="mealSheet"></div>
 <div class="sheet" id="favSheet"></div>
 <div class="sheet" id="editSheet"></div>
+<div class="sheet" id="newMealSheet"></div>
 
 <!-- 設定シート -->
 <div class="sheet" id="settingsSheet"></div>
@@ -515,7 +526,7 @@ function vKin(){
     ${items.some(it=>(it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done)))&&!it.collapsed)?`<button class="btn gray sm" style="width:100%;margin-top:8px" onclick="collapseCompleted()">▾ 完了した種目をまとめて畳む</button>`:''}
   </div>
   <div class="card" style="border-color:var(--accentD)">
-    <div class="row" style="justify-content:space-between;align-items:center"><b>🐉 AIに筋トレ相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
+    <div class="row" style="justify-content:space-between;align-items:center"><b>AIに筋トレ相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">設定が必要</span>'}</div>
     <div class="flex2" style="margin-top:8px">
       <button class="btn sm" onclick="askBuildMenu()">今日のメニュー組んで</button>
       <button class="btn sm gray" onclick="askDiagnoseMenu()">今の内容を診断</button>
@@ -568,7 +579,7 @@ function exCard(x,i){
   const nmQ=esc(x.name).replace(/'/g,'');
   const head=`<div class="row draghead" style="justify-content:space-between;align-items:center" ontouchstart="dragStart(event,'${x.id}')" onmousedown="dragStart(event,'${x.id}')" title="長押しでドラッグして並べ替え">
       <b style="flex:1 1 auto;min-width:0"><span class="grip">⠿</span> ${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span style="display:flex;gap:2px;flex:0 0 auto"><button class="minibtn" onclick="openAnat('${nmQ}')" title="解剖ページ（効く筋・神経・意識点）">🫀</button><button class="minibtn" onclick="askForm('${nmQ}')" title="AIにフォーム相談">🐉</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
+      <span style="display:flex;gap:2px;flex:0 0 auto"><button class="minibtn" onclick="openAnat('${nmQ}')" title="解剖ページ（効く筋・神経・意識点）">🫀</button><button class="minibtn" onclick="askForm('${nmQ}')" title="AIにフォーム相談"></button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
     ${menuOpen?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="minibtn" onclick="renameItem('${x.id}')">✎ 名前</button><button class="minibtn" onclick="planMove(${i},-1)">↑ 上へ</button><button class="minibtn" onclick="planMove(${i},1)">↓ 下へ</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">🗑 削除</button></div>`:''}`;
   if(x.collapsed){
     return `<div class="card excard" data-eid="${x.id}" style="padding:12px 15px">${head}
@@ -740,17 +751,17 @@ function sessCtrl(){const p=D.plan;
     <button class="btn gray sm" style="width:auto" onclick="sessReset()">やり直す</button></div>
     ${reviewBlock()}
     ${dailyNoteCard('📝 今日のひとこと・感想（トレの記録に添える）')}
-    <button class="btn sm" style="width:100%;margin-top:2px" onclick="askCooldown()">🐉 今日に合うストレッチを提案</button>`;}
+    <button class="btn sm" style="width:100%;margin-top:2px" onclick="askCooldown()">今日に合うストレッチを提案</button>`;}
 /* ---- トレ終了後のAI総評 ---- */
 function itemPerformed(it){return it.noWeight?!!it.done:(it.sets||[]).some(s=>s.done);}
 function toggleHideUndone(){ensurePlan();D.plan.hideUndone=(D.plan.hideUndone===false);save();render();}
 function reviewBlock(){const p=D.plan;
-  if(window._reviewBusy)return `<div class="card" style="margin-top:8px;background:var(--card2)"><b>🐉 今日の総評</b><div class="muted" style="margin-top:4px">まとめてるところ…</div></div>`;
+  if(window._reviewBusy)return `<div class="card" style="margin-top:8px;background:var(--card2)"><b>今日の総評</b><div class="muted" style="margin-top:4px">まとめてるところ…</div></div>`;
   if(p.review)return `<div class="card" style="margin-top:8px;background:var(--card2)">
-    <div class="row" style="justify-content:space-between;align-items:center"><b>🐉 今日の総評</b>
+    <div class="row" style="justify-content:space-between;align-items:center"><b>今日の総評</b>
       <button class="minibtn" onclick="makeReview(true)">↻ 作り直す</button></div>
     <div style="font-size:13px;line-height:1.7;margin-top:6px">${mdToHtml(p.review)}</div></div>`;
-  return `<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="makeReview(true)">🐉 今日の総評をAIに書いてもらう</button>`;}
+  return `<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="makeReview(true)">今日の総評をAIに書いてもらう</button>`;}
 function sessSummaryText(){ensurePlan();const p=D.plan;const t=window._itemTimes||computeItemTimes();
   const done=(p.items||[]).filter(itemPerformed);
   const lines=done.map(it=>{
@@ -762,7 +773,7 @@ function sessSummaryText(){ensurePlan();const p=D.plan;const t=window._itemTimes
   const skipped=(p.items||[]).filter(it=>!itemPerformed(it)).map(it=>it.name);
   return `【今日のトレ実績】運動時間 ${fmtMin(p.accum||0)}／総ボリューム ${totalVol}kg\n${lines.join('\n')||'（実施記録なし）'}${skipped.length?'\n（予定したがやらなかった種目：'+skipped.join('・')+'）':''}`;}
 async function makeReview(force){ensurePlan();const p=D.plan;
-  if(!aiKey())return force?alert('先にコーチを開眼（設定でAPIキー）してね'):null;
+  if(!aiKey())return force?alert('先に⚙設定でAPIキーを入れてね'):null;
   if(!(p.items||[]).some(itemPerformed))return;
   if(p.review&&!force)return;
   window._reviewBusy=true;render();
@@ -913,7 +924,7 @@ function vRun(){
   return `
   <div class="banner">走ったことなくても大丈夫。まずは距離と時間を記録するだけ。下のAIボタンで初心者向けプランも出せるよ。</div>
   <div class="card" style="border-color:var(--accentD)">
-    <div class="row" style="justify-content:space-between;align-items:center"><b>🏃 AIにランプラン相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">要・開眼</span>'}</div>
+    <div class="row" style="justify-content:space-between;align-items:center"><b>🏃 AIにランプラン相談</b>${aiKey()?'':'<span class="muted" style="font-size:11px">設定が必要</span>'}</div>
     <button class="btn sm" style="width:100%;margin-top:8px" onclick="askRunPlan()">初心者プランを提案してもらう</button>
     <div class="muted" style="font-size:11px;margin-top:6px">最近のラン・体調・目標を踏まえて、距離/ペース/頻度を提案（コーチSonnet）。</div>
   </div>
@@ -1019,7 +1030,7 @@ function vMeal(){
     <label>ボリューム感</label>
     <div class="row" id="lvRow">${LEVELS.map(l=>`<button class="chip ${l===_mealLevel?'on':''}" onclick="_mealLevel='${l}';document.querySelectorAll('#lvRow .chip').forEach(c=>c.classList.remove('on'));event.target.classList.add('on')">${l}</button>`).join('')}</div>
     <label>写真（任意・端末内のみ）</label>
-    <input id="mPhoto" type="file" accept="image/*">
+    <input id="mPhoto" type="file" accept="image/*" capture="environment">
     <button class="btn" style="margin-top:10px" onclick="saveMeal()">記録する</button>
   </div>
   <h3>今日の食事</h3>
@@ -1055,7 +1066,7 @@ function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ
   </details>
   ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
 async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);if(!m||!m.photoId){alert('写真がありません');return;}
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   const imgs=await imgAll();const im=imgs.find(o=>o.id===m.photoId);
   if(!im||!im.dataUrl){alert('写真を読み込めませんでした');return;}
   m.aiNote='🍽️ 分析中…';save();render();
@@ -1087,10 +1098,10 @@ function usualCount(supId){const s=D.supList.find(x=>x.id===supId);
 function vSup(){
   const t=today();const key=!!aiKey();
   return `
-  <div class="banner">常用サプリを登録→毎日ワンタップ。いつもの粒数を覚えて「これ？」で選ぶだけに。${key?'名称からAIが成分・目安量も調べます。':'成分のAI分析はコーチ開眼後に有効。'}</div>
+  <div class="banner">常用サプリを登録→毎日ワンタップ。いつもの粒数を覚えて「これ？」で選ぶだけに。${key?'名称からAIが成分・目安量も調べます。':'成分のAI分析はAPIキーを入れると使えます。'}</div>
   <div class="card">
     <h3 style="margin-top:0">💊 今日のチェック</h3>
-    ${D.supList.length?`<button class="btn sm gray" style="width:100%;margin-bottom:8px" onclick="askSupTiming()">🐉 飲み方・タイミングをAIに相談</button>`:''}
+    ${D.supList.length?`<button class="btn sm gray" style="width:100%;margin-bottom:8px" onclick="askSupTiming()">飲み方・タイミングをAIに相談</button>`:''}
     ${D.supList.length?`<button class="btn" style="width:100%;margin-bottom:8px" onclick="logAllUsual()">＋ いつもの一式を記録（${today()===t?'今日':''}）</button>`:''}
     ${D.supList.length?D.supList.map(s=>{const log=D.supLogs.find(l=>l.date===t&&l.supId===s.id&&l.taken);const uc=usualCount(s.id);
       return `<div class="item"><div class="row" style="justify-content:space-between;align-items:center;margin:0">
@@ -1105,7 +1116,7 @@ function vSup(){
     <input id="supName" placeholder="名前（例：ホエイプロテイン）">
     <div id="supAiBox" style="display:none;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)"></div>
     <textarea id="supPaste" placeholder="任意：成分表やURLを貼るとAI分析の精度が上がる" style="min-height:44px;margin-top:6px"></textarea>
-    <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeSupp()">🔍 AIで成分・目安量を調べる${key?'':'（要・開眼）'}</button>
+    <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeSupp()">🔍 AIで成分・目安量を調べる${key?'':'（設定が必要）'}</button>
     <div class="flex3" style="margin-top:8px">
       <input id="supCount" type="number" inputmode="numeric" placeholder="粒数">
       <input id="supUnit" value="粒" placeholder="単位">
@@ -1133,7 +1144,7 @@ function logAllUsual(){const t=today();const now=new Date().toTimeString().slice
 async function analyzeSupp(){const name=(document.getElementById('supName').value||'').trim();
   const extra=(document.getElementById('supPaste')?document.getElementById('supPaste').value:'').trim();
   if(!name&&!extra){alert('名称か、成分表/URLを入れてね');return;}
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   const box=document.getElementById('supAiBox');if(box){box.style.display='block';box.textContent='🔍 調べています…';}
   const prompt=`次のサプリメントについて日本語で簡潔に。\n名称/情報: ${name} ${extra}\n出力(この順で短く):\n1) 主成分\n2) 期待できる効果(1〜2行)\n3) 一般的な目安量(1回あたりの粒数やg)\n4) 注意点1行(あれば)\n※URLの中身は開けないので、名称から"一般的な情報"として。特定商品の断定は避け「一般に」と前置き。`;
   try{const r=await aiCall([{role:'user',content:prompt}],{model:aiModelData(),max_tokens:400});
@@ -1387,7 +1398,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <div class="hint">⚠️ 目標摂取カロリーは、どのペースを選んでも<b>基礎代謝量を下回らない</b>ようにしてあります（極端な制限を防ぐため）。</div>
     </div>
     <div class="card">
-      <h3 style="margin-top:0">🐉 AIコーチ（開眼）</h3>
+      <h3 style="margin-top:0">AIコーチ（開眼）</h3>
       <div class="muted">Claude APIキーを入れると「コーチ」タブで相談が使えるように。キーは端末内だけに保存し、Anthropicのapi以外には送りません。</div>
       <label style="margin-top:8px">APIキー</label>
       <input id="pfKey" type="password" value="${esc(D.profile.apiKey)}" placeholder="sk-ant-...">
@@ -1413,7 +1424,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.4（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.5（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1561,7 +1572,7 @@ async function runCoach(){window._coachBusy=true;render();
 function sendCoach(){const inp=document.getElementById('coachInput');const q=(inp?inp.value:'').trim();if(!q)return;
   if(!aiKey()){alert('先に設定でAPIキーを入れてね');return;}
   curThread().push({role:'user',content:q});window._coachDraft='';if(inp)inp.value='';save();runCoach();}
-function coachAsk(q,thread){if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+function coachAsk(q,thread){if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   if(thread)window._thread=thread;sub.coach='相談';curThread().push({role:'user',content:q});save();setTab('コーチ');runCoach();}
 function switchThread(name){window._thread=name;render();setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);}
 function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
@@ -1572,8 +1583,8 @@ function askRunPlan(){coachAsk('私はラン初心者。最近のランの記録
 function askSupTiming(){const sup=D.supList.map(s=>s.name+(s.count?`(${s.count}${supUnit(s)})`:'')+(s.timing?`/${s.timing}`:'')).join('・')||'（未登録）';
   coachAsk('私の常用サプリは「'+sup+'」。目標とトレ内容を踏まえて、各サプリを飲むタイミング・量・組み合わせ（一緒に摂ると良い/避ける）を最適化して。一般的な範囲で、医療的処方ではない前提で。');}
 function clearCoach(){const t=window._thread||'総合';if(confirm('「'+t+'」の会話履歴を消す？')){D.aiThreads[t]=[];if(t!=='総合')delete D.aiThreads[t],window._thread='総合';save();render();}}
-function coachSetup(){return `<div class="card"><h3 style="margin-top:0">🐉 AIコーチを開眼させる</h3>
-  <div class="muted">まだAPIキーが未設定です。下の手順で開眼できます。</div>
+function coachSetup(){return `<div class="card"><h3 style="margin-top:0">AIコーチを使えるようにする</h3>
+  <div class="muted">まだAPIキーが未設定です。下の手順で使えるようになります。</div>
   <ol style="padding-left:18px;line-height:1.9;font-size:14px">
    <li><b>console.anthropic.com</b> にログイン → Billingで前払いクレジット購入（$5〜）＋月上限を設定（例$5・auto-reloadはOFF）</li>
    <li>API Keysでキーを発行</li>
@@ -1589,11 +1600,11 @@ function vCoach(){
   const cur=window._thread=window._thread||'総合';D.aiThreads=D.aiThreads||{'総合':[]};if(!Array.isArray(D.aiThreads[cur]))D.aiThreads[cur]=[];
   const names=['総合'].concat(Object.keys(D.aiThreads).filter(n=>n!=='総合'));
   const chips=`<div class="row" style="gap:6px;margin-bottom:8px;overflow-x:auto;flex-wrap:nowrap">${names.map(n=>`<button class="chip ${n===cur?'on':''}" style="flex:0 0 auto;white-space:nowrap" onclick="switchThread('${esc(n).replace(/'/g,'')}')">${n==='総合'?'💬 総合':'🏋️ '+esc(n)}</button>`).join('')}</div>`;
-  const msgs=D.aiThreads[cur].map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'🐉 ':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
-    ||`<div class="muted" style="text-align:center;padding:24px 8px">${cur==='総合'?'目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」':'「'+esc(cur)+'」専用スレッド。この種目のフォーム・重量設定・悩みをここで相談。<br>（トレ画面の種目カードの🐉からも開けます）'}</div>`;
-  return coachTabs()+`<div class="muted" style="font-size:11px;margin:-4px 0 6px">🐉 ${cur==='総合'?'総合スレッド':esc(cur)+' のスレッド'}</div>
+  const msgs=D.aiThreads[cur].map((m,i)=>`<div class="cbub ${m.role}">${m.role==='assistant'?'':''}${mdToHtml(m.content)}${m.role==='assistant'?`<div style="margin-top:6px"><button class="minibtn" onclick="memoAdd(${i})" title="この内容をコーチのメモに保存">📌 覚えさせる</button></div>`:''}</div>`).join('')
+    ||`<div class="muted" style="text-align:center;padding:24px 8px">${cur==='総合'?'目標に沿って何でも聞いてね。<br><br>例：「今のメニュー、理想に近づくには何を足す？」<br>「今日は脚に筋肉痛、何やるべき？」':'「'+esc(cur)+'」専用スレッド。この種目のフォーム・重量設定・悩みをここで相談。<br>（トレ画面の種目カードのからも開けます）'}</div>`;
+  return coachTabs()+`<div class="muted" style="font-size:11px;margin:-4px 0 6px">${cur==='総合'?'総合スレッド':esc(cur)+' のスレッド'}</div>
    ${chips}
-   <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">🐉 考え中…</div>':''}</div>
+   <div id="coachMsgs" style="display:flex;flex-direction:column;gap:8px;padding:6px 0 12px">${msgs}${window._coachBusy?'<div class="cbub assistant" style="opacity:.7">考え中…</div>':''}</div>
    <div class="card">
      <textarea id="coachInput" oninput="window._coachDraft=this.value" placeholder="相談を入力…（${cur==='総合'?'総合':esc(cur)}）" style="min-height:54px">${esc(window._coachDraft||'')}</textarea>
      <div class="row" style="justify-content:space-between;margin-top:6px">
@@ -1616,14 +1627,14 @@ function vCoach(){
    <details class="card" style="margin-top:8px"${Object.keys(D.exerciseNotes||{}).length?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📒 種目メモ（コーチが種目ごとに保存した内容）</summary>
      ${Object.keys(D.exerciseNotes||{}).length?Object.keys(D.exerciseNotes).map(nm=>`
        <div class="item"><div class="row" style="justify-content:space-between;align-items:center"><b>🏋️ ${esc(nm)}</b>
-         <span style="display:flex;gap:4px"><button class="minibtn" onclick="coachAsk('「${esc(nm).replace(/'/g,'')}」について相談したい。','${esc(nm).replace(/'/g,'')}')">🐉 相談</button><button class="del" onclick="delExNote('${esc(nm).replace(/'/g,'')}')">削除</button></span></div>
+         <span style="display:flex;gap:4px"><button class="minibtn" onclick="coachAsk('「${esc(nm).replace(/'/g,'')}」について相談したい。','${esc(nm).replace(/'/g,'')}')">相談</button><button class="del" onclick="delExNote('${esc(nm).replace(/'/g,'')}')">削除</button></span></div>
          <div style="font-size:13px;line-height:1.7;margin-top:6px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px">${mdToHtml(D.exerciseNotes[nm])}</div></div>`).join(''):'<div class="muted" style="margin-top:6px">まだなし。コーチに「◯◯（種目名）のメモに書いといて」と頼むと、その種目に保存されてここに並びます。</div>'}
    </details>
    <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🔖 やりたいメモ（気になる種目・インスタ等のリンク）</summary>
      <div class="muted" style="font-size:12px;margin-top:6px">見つけた種目やリンクをメモしておくと、コーチが提案の時に取り入れてくれる。※AIはリンク先を開けないので、種目名や一言も添えると精度UP。</div>
      <div class="flex2" style="margin-top:8px"><input id="wishText" placeholder="例：ブルガリアンスクワット（IGで見た）"><button class="btn sm" style="flex:0 0 auto;width:auto" onclick="addWish()">追加</button></div>
      ${(D.wishlist||[]).slice().reverse().map(w=>`<div class="item"><div class="row" style="justify-content:space-between"><span style="flex:1;word-break:break-all">${esc(w.text)}</span><button class="del" onclick="delWish('${w.id}')">削除</button></div></div>`).join('')||'<div class="muted" style="margin-top:6px">まだなし</div>'}
-     ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">🐉 これらを取り入れて提案してもらう</button>`:''}
+     ${(D.wishlist||[]).length?`<button class="btn sm gray" style="width:100%;margin-top:8px" onclick="askWishlist()">これらを取り入れて提案してもらう</button>`:''}
    </details>`;}
 function saveCoachMemo(){const el=document.getElementById('coachMemo');if(el){D.coachMemo=el.value;save();alert('保存しました（毎回コーチに渡されます）');}}
 function delExNote(name){if(confirm('「'+name+'」の種目メモを削除する？')){D.exerciseNotes=D.exerciseNotes||{};delete D.exerciseNotes[name];save();render();}}
@@ -1772,11 +1783,11 @@ function vAdherence(){
     ${adhBar('トレの頻度',Math.min(100,Math.round(a.perWeek/3*100)),`週 ${a.perWeek}回ペース（${a.days}日で${a.tre}回）`)}
     ${worst<60?`<div class="note-warn" style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:11px;font-size:12.5px;line-height:1.7">
       <b>守れてない＝あなたが悪いんじゃなくて、処方が生活に合ってない</b>可能性が高いです。当直・外食・疲労を織り込んだ現実的な処方に、コーチが組み直します。
-      <button class="btn sm" style="width:100%;margin-top:8px" onclick="reviseRx()">🐉 この実績で処方箋を調整してもらう</button></div>`
+      <button class="btn sm" style="width:100%;margin-top:8px" onclick="reviseRx()">この実績で処方箋を調整してもらう</button></div>`
       :`<div class="muted" style="font-size:12px;margin-top:10px">いいペース。この調子で続けて、4週たったら採寸の変化と合わせて見直そう。</div>`}
   </div>`;}
 async function reviseRx(){
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   const a=rxAdherence();if(!a||a.tooEarly)return;
   window._rxBusy=true;render();
   const sys=`あなたは${D.profile.name||'ユーザー'}さん専属の栄養・運動コーチ。前回出した処方箋が守れていないので、**処方のほうを現実に合わせて組み直す**のが今回の仕事。
@@ -1865,11 +1876,11 @@ function vRx(){
     <div class="row" style="justify-content:space-between;align-items:center">
       <h3 style="margin:0">📋 処方箋</h3>
       ${D.rx&&D.rx.text?`<span class="muted" style="font-size:11px">${fmtD(D.rx.date)} 発行</span>`:''}</div>
-    ${window._rxBusy?'<div class="muted" style="margin-top:8px">🐉 書いてるところ…（少し時間がかかります）</div>'
+    ${window._rxBusy?'<div class="muted" style="margin-top:8px">書いてるところ…（少し時間がかかります）</div>'
       :(D.rx&&D.rx.text?`<div style="font-size:13.5px;line-height:1.8;margin-top:8px">${mdToHtml(D.rx.text)}</div>
         <button class="btn sm gray" style="width:100%;margin-top:10px" onclick="makeRx()">↻ 出し直す（今の記録で）</button>`
       :`<div class="muted" style="margin-top:6px">目標体型・採寸・トレ記録・食事・体調周期・筋肉痛をぜんぶ渡して、<b>栄養の処方</b>（1日の目安・食事の組み立て方・サプリ）と<b>運動の処方</b>（週の分割・種目・頻度・強度）を書いてもらいます。</div>
-        <button class="btn" style="margin-top:10px" onclick="makeRx()">🐉 処方箋を出してもらう</button>`)}
+        <button class="btn" style="margin-top:10px" onclick="makeRx()">処方箋を出してもらう</button>`)}
     <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">${D.rx&&D.rx.revised?'↻ 実績にあわせて組み直した版です。<br>':''}⚠️ これは医療的な処方ではなく、一般的な栄養・運動の情報です。体調が悪い時・生理が止まった時・持病がある時は、数字より体を優先して、必要なら医療機関に相談してね。</div>
   </div>
   ${vAdherence()}`;}
@@ -1879,7 +1890,7 @@ function saveRxGoal(){D.profile.goal=(document.getElementById('rxGoal').value||'
     if(v==='')delete D.profile.targets[k];else D.profile.targets[k]=+v;});
   save();alert('保存しました');render();}
 async function makeRx(){
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   window._rxBusy=true;render();
   const g=nutReady()?targetPFC(today()):null;const tg=(D.profile||{}).targets||{};
   const tgTxt=MFIELDS.filter(([k])=>tg[k]!=null).map(([k,l,u])=>`${l}${tg[k]}${u}`).join(' / ')||'（数値目標なし）';
@@ -2120,7 +2131,7 @@ function anatView(name){
     return head+`<div class="wrap" style="padding-bottom:40px">
       <div class="card" style="margin-top:14px"><h3 style="margin-top:0">「${esc(name)}」はまだ収録されていません</h3>
       <div class="muted">内蔵の解剖データにこの種目名がありません。AIコーチに作らせて、この端末に保存できます（次回から即表示）。</div>
-      <button class="btn" style="margin-top:10px" onclick="genAnat('${nmQ}')">🐉 AIに解剖ページを作らせる</button>
+      <button class="btn" style="margin-top:10px" onclick="genAnat('${nmQ}')">AIに解剖ページを作らせる</button>
       <div class="muted" style="font-size:11px;margin-top:8px">※ 図はアプリ内蔵のオリジナルSVG。起始・停止・支配神経などの事実は言語モデルの記述を正として表示します（生成画像は使いません）。</div></div></div>`;}
   const d=hit?hit.data:null;
   const prim=(cached&&cached.p)||(d?d.p:[]);
@@ -2153,16 +2164,16 @@ function anatView(name){
       <button class="minibtn" style="margin-top:8px" onclick="genAnat('${nmQ}',1)">↻ 作り直す</button></div>`:''}
     ${exNote(hit?hit.key:name)?`<div class="anatsec"><div class="anatsech">あなたのメモ<span>MY NOTE</span></div>
       <div style="font-size:13px;line-height:1.75">${mdToHtml(exNote(hit?hit.key:name))}</div></div>`:''}
-    <button class="btn" style="margin-top:14px" onclick="closeAnat();askForm('${nmQ}')">🐉 この種目をコーチに深掘りする</button>
+    <button class="btn" style="margin-top:14px" onclick="closeAnat();askForm('${nmQ}')">この種目をコーチに深掘りする</button>
     <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">図はこのアプリのために描き起こしたオリジナルの模式図です（形状は簡略化）。起始・停止・作用・支配神経は解剖学の標準的記載に基づくテキストが正で、図はイメージ補助として見てください。</div>
   </div>`;}
 async function genAnat(name,force){
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');return;}
   D.anatCache=D.anatCache||{};
   if(D.anatCache[name]&&!force)return;
   const s=document.getElementById('anatSheet');
   s.innerHTML=`<div class="anatbar"><b style="font-size:15px">🫀 解剖ページ</b><button class="close" onclick="closeAnat()">✕</button></div>
-    <div class="wrap"><div class="card" style="margin-top:14px"><b>🐉 「${esc(name)}」の解剖ページを作成中…</b><div class="muted" style="margin-top:4px">効く筋・起始停止・神経・意識点をまとめています</div></div></div>`;
+    <div class="wrap"><div class="card" style="margin-top:14px"><b>「${esc(name)}」の解剖ページを作成中…</b><div class="muted" style="margin-top:4px">効く筋・起始停止・神経・意識点をまとめています</div></div></div>`;
   const keys=Object.keys(MUS).join(',');
   const sys=`あなたは解剖学に厳密なスポーツ医学コーチ。整形外科志望の医療従事者向けに回答する。
 出力は必ず次の形式で、1行目と2行目は指定どおりに：
@@ -2220,6 +2231,7 @@ function tlGoToday(){
 
 const V7TILES={
   tre:{label:'今日のトレ'},
+  meals:{label:'今日の食事'},
   sore:{label:'筋肉痛マップ'},
   coach:{label:'コーチからの一言'},
   sup:{label:'サプリ'},
@@ -2230,6 +2242,7 @@ const V7TILES={
 };
 const V7_BOARD_DEFAULT=[
   {key:'tre',size:'L',hidden:false},
+  {key:'meals',size:'L',hidden:false},
   {key:'nut',size:'M',hidden:false},
   {key:'sore',size:'M',hidden:false},
   {key:'coach',size:'M',hidden:false},
@@ -2238,18 +2251,20 @@ const V7_BOARD_DEFAULT=[
   {key:'rx',size:'M',hidden:true},
   {key:'freq',size:'M',hidden:true}
 ];
-const BOARD_VER=2;
+const BOARD_VER=3;
 /* 注意：D.board は必ず「その場で」直す。新しい配列を作ると、
    呼び出し側が掴んでいる配列と別物になって並べ替えが効かなくなる */
 function ensureBoard(){
   if(!Array.isArray(D.board)||!D.board.length){D.board=JSON.parse(JSON.stringify(V7_BOARD_DEFAULT));D.boardVer=BOARD_VER;}
   for(let i=D.board.length-1;i>=0;i--){if(!D.board[i]||!V7TILES[D.board[i].key])D.board.splice(i,1);}
   V7_BOARD_DEFAULT.forEach(d=>{if(!D.board.some(t=>t.key===d.key))D.board.push(JSON.parse(JSON.stringify(d)));});
-  /* ver2：栄養タイルを既定で表示に。他の並べ替え・非表示の設定は壊さない */
+  /* 追加したタイルを既定で表示にする移行処理。並べ替え・非表示の設定は壊さない */
   if(D.boardVer!==BOARD_VER){
-    const i=D.board.findIndex(t=>t.key==='nut');
-    if(i>=0){const t=D.board[i];t.hidden=false;t.size='M';D.board.splice(i,1);
-      const j=D.board.findIndex(x=>x.key==='tre');D.board.splice(j>=0?j+1:0,0,t);}
+    const put=(key,size)=>{const i=D.board.findIndex(t=>t.key===key);if(i<0)return;
+      const t=D.board[i];t.hidden=false;t.size=size;D.board.splice(i,1);
+      const j=D.board.findIndex(x=>x.key==='tre');D.board.splice(j>=0?j+1:0,0,t);};
+    if(!D.boardVer||D.boardVer<2)put('nut','M');
+    if(!D.boardVer||D.boardVer<3)put('meals','L');
     D.boardVer=BOARD_VER;
   }
   return D.board;
@@ -2297,7 +2312,7 @@ function closeV7Sheet(id){
 /* ---------- 記録シート（＋ボタン） ---------- */
 const REC_ITEMS=[
   ['🏋️','トレ','トレ','tre','筋トレ'],
-  ['🍽','食事','食事','shoku','食事'],
+  ['🍽','食事','','',''],
   ['💊','サプリ','食事','shoku','サプリ'],
   ['📏','採寸','からだ','kbody','採寸'],
   ['💗','体調','からだ','kbody','体調・周期'],
@@ -2312,7 +2327,8 @@ function renderRec(){
     <div class="wrap" style="padding-top:14px">
       <button class="btn" style="margin-bottom:12px" onclick="closeV7Sheet('recSheet');openFav()">⭐️ よく食べるものから記録</button>
       <div class="rgrid">${REC_ITEMS.map(([ic,l,t,k,v])=>
-        `<button class="rbtn" onclick="recGo('${t}','${k}','${v}')"><span>${ic}</span>${l}</button>`).join('')}</div>
+        `<button class="rbtn" onclick="${t?`recGo('${t}','${k}','${v}')`:`closeV7Sheet('recSheet');openNewMeal()`}">
+          <span>${ic}</span>${l}</button>`).join('')}</div>
       <div class="muted" style="margin-top:14px;font-size:12px">※ 文章を打って送ればコーチへの相談になります（LINEと同じ）</div>
     </div>`;
 }
@@ -2416,10 +2432,8 @@ function renderMeal(){
        <div class="flex2" style="margin-top:9px">
          <div><label>日付</label>
            <input type="date" value="${esc(m.date||today())}" onchange="mealSetNumSafe('${m.id}','date',this.value)"></div>
-         <div><label>いつ</label>
-           <select onchange="mealSetNumSafe('${m.id}','type',this.value)">
-             ${['朝','昼','夜','間食'].map(x=>`<option ${x===m.type?'selected':''}>${x}</option>`).join('')}
-           </select></div>
+         <div><label>時刻</label>
+           <input type="time" value="${esc(m.ts?hhmm(m.ts):'')}" onchange="mealSetTime('${m.id}',this.value)"></div>
        </div>
        <label>量の感覚</label>
        <div class="row">${LEVELS.map(l=>
@@ -2438,13 +2452,13 @@ function renderMeal(){
        <div class="muted" style="font-size:11.5px;margin-top:7px">
          数字を直せばそのままグラフに反映されます。${has?'空にすると「ボリューム感からの推定」に戻ります。':''}</div>
        <button class="btn ${busy?'gray':''}" style="margin-top:11px" ${busy?'disabled':''} onclick="recalcMeal('${m.id}')">
-         ${busy?'計算中…':'🐉 この内容で計算し直す'}</button>
+         ${busy?'計算中…':'この内容で計算し直す'}</button>
        ${has?`<button class="btn sm gray" style="width:100%;margin-top:7px" onclick="mealClearNut('${m.id}')">数値をクリア（推定に戻す）</button>`:''}
        <div class="muted" style="font-size:11px;margin-top:7px">⚠️ すべて推定値です。数字に振り回されず、体調と採寸の変化を優先してね。</div>
      </div>
 
      ${m.aiNote?`<div class="card"><div class="row" style="justify-content:space-between;align-items:center">
-        <h3 style="margin:0">🐉 コーチの見立て</h3>
+        <h3 style="margin:0">コーチの見立て</h3>
         <button class="del" onclick="mealSet('${m.id}','aiNote','');renderMeal()">消す</button></div>
        <div style="font-size:13px;line-height:1.75;white-space:pre-wrap;margin-top:6px">${esc(m.aiNote)}</div></div>`:''}
 
@@ -2471,10 +2485,18 @@ function useAiFood(id){
   setTimeout(()=>{const t=document.getElementById('mealMemo');
     if(t){t.focus();t.setSelectionRange(t.value.length,t.value.length);}},40);
 }
-/* 文字列フィールド（日付・種類）はそのまま入れて再描画 */
+/* 文字列フィールド（日付など）はそのまま入れて再描画 */
 function mealSetNumSafe(id,field,v){
   const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
   m[field]=v;save();renderMeal();
+}
+/* 時刻を直す。ジャンル（type）は表に出さないが裏で合わせておく */
+function mealSetTime(id,v){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  if(!v){m.ts=0;save();renderMeal();return;}
+  m.ts=tsFromTime(m.date||today(),v);
+  m.type=typeFromHour(new Date(m.ts).getHours());
+  save();renderMeal();
 }
 
 /* 本人が直した内容を正として、カロリーとPFCを計算し直す */
@@ -2482,7 +2504,7 @@ async function recalcMeal(id){
   const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
   const memoEl=document.getElementById('mealMemo');
   if(memoEl){m.memo=memoEl.value;}
-  if(!aiKey()){alert('先にコーチを開眼（設定でAPIキー）してね');openSettings();return;}
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   if(!(m.memo||'').trim()){alert('「食べたもの」を書いてから押してね');return;}
   m.aiNote='🍽️ 計算中…';save();renderMeal();
 
@@ -2558,7 +2580,7 @@ function tileSize(key){const i=tileIdx(key);const t=ensureBoard()[i];if(!t)retur
 function tileHide(key){const i=tileIdx(key);const t=ensureBoard()[i];if(!t)return;t.hidden=!t.hidden;save();render();}
 function tileEditDone(){_edit=false;render();}
 
-const TILE_JUMP={tre:'workout',sore:'sore',coach:'coach',sup:'sup',nut:'meal',measure:'measure',rx:'coach',freq:'workout'};
+const TILE_JUMP={tre:'workout',meals:'meal',sore:'sore',coach:'coach',sup:'sup',nut:'meal',measure:'measure',rx:'coach',freq:'workout'};
 function tileTap(key){
   if(_edit)return;
   if(key==='tre'&&!(D.plan&&D.plan.startTs&&!D.plan.endTs)&&!(D.plan&&D.plan.items||[]).length){openDetail('トレ','tre','筋トレ');return;}
@@ -2568,7 +2590,7 @@ function tileTap(key){
 function v7Tip(){
   if(D.v7Tip)return '';
   return `<div class="tipcard">
-    <h3>🐉 使い方（最初だけ）</h3>
+    <h3>使い方（最初だけ）</h3>
     <ul>
       <li><b>記録する</b>は左下の <span class="k">＋ 記録</span>。トレ・食事・サプリ・採寸・体調・筋肉痛・写真・ランがここに全部あります</li>
       <li><b>コーチに相談</b>は下の入力欄に文章を打って ↑。記録は入りません（相談だけ）</li>
@@ -2595,7 +2617,7 @@ function v7Board(){
 }
 function v7Tile(t){
   const meta=V7TILES[t.key]||{label:t.key};
-  const body=({tre:tlTre,sore:tlSore,coach:tlCoach,sup:tlSup,nut:tlNut,measure:tlMeasure,rx:tlRx,freq:tlFreq}[t.key]||(()=>''))();
+  const body=({tre:tlTre,meals:tlMealList,sore:tlSore,coach:tlCoach,sup:tlSup,nut:tlNut,measure:tlMeasure,rx:tlRx,freq:tlFreq}[t.key]||(()=>''))();
   return `<div class="tile ${t.size==='L'?'L':''} ${_edit?'edit':''} ${t.hidden?'off':''}"
       onpointerdown="tileDown()" onpointerup="tileUp()" onpointercancel="tileUp()" onpointerleave="tileUp()"
       ${_edit?'':`onclick="tileTap('${t.key}')"`}>
@@ -2667,9 +2689,11 @@ function tlCoach(){
   for(let i=th.length-1;i>=0;i--){if(th[i]&&th[i].role==='assistant'&&th[i].content){txt=th[i].content;break;}}
   if(!txt&&D.rx&&D.rx.text)txt=String(D.rx.text).split('\n').filter(l=>l.trim()&&!/^[#＃\-*]/.test(l))[0]||'';
   if(!txt&&D.coachMemo)txt=D.coachMemo;
-  if(!txt)return `<div class="muted">${aiKey()?'まだ会話がありません。下のバーから話しかけてみて。':'⚙設定でAPIキーを入れると開眼します'}</div>`;
-  const s=txt.replace(/\s+/g,' ').trim();
-  return `<div style="font-size:12.5px;line-height:1.7">${esc(s.slice(0,86))}${s.length>86?'…':''}</div>`;
+  if(!txt)return `<div class="muted">${aiKey()?'まだ会話がありません。下のバーから話しかけてみて。':'⚙設定でAPIキーを入れると使えます'}</div>`;
+  const s=plainFirst(txt,78);
+  if(!s)return `<div class="muted">—</div>`;
+  return `<div style="font-size:13px;line-height:1.8">${esc(s)}</div>
+    <div class="muted" style="font-size:11px;margin-top:6px">タップして続きを読む →</div>`;
 }
 
 function tlSup(){
@@ -2814,8 +2838,7 @@ function v7Events(days){
 
   (D.meals||[]).forEach((m,i)=>push(m.date,m.ts||0,'🍽',
     wrap('meal',m.id,
-     `<b>${esc(m.type||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
-      m.ts?` <span class="muted" style="font-size:11.5px">${new Date(m.ts).toTimeString().slice(0,5)}</span>`:''}${
+     `<b>${esc(mealTime(m)||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
       mealHasNut(m)?` <span class="muted">${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g</span>`
                    :` <span class="muted">約${mealKcal(m)}kcal（推定）</span>`}${
       (m.memo||'').trim()
@@ -2861,7 +2884,7 @@ function v7Events(days){
   Object.keys(D.aiThreads||{}).forEach(k=>{(D.aiThreads[k]||[]).forEach((mm,i)=>{
     if(!mm||!mm.ts||!mm.content)return;
     const d=new Date(mm.ts).toISOString().slice(0,10);
-    push(d,mm.ts,mm.role==='user'?'🙋':'🐉',
+    push(d,mm.ts,mm.role==='user'?'<span class="tlme">私</span>':navIcon('coach'),
       `<div onclick="openEdit('coach','${mm.mid||''}')" style="cursor:pointer">
         ${mm.mid?fix('coach',mm.mid):''}
         <div class="t">${mm.role==='user'?'わたし':'コーチ'}${k!=='総合'?'（'+esc(k)+'）':''}
@@ -2869,7 +2892,7 @@ function v7Events(days){
         ${mdToHtml(String(mm.content).slice(0,600))}</div>`,
       'coach',mm.role==='user'?'me':'',i);});});
 
-  if(D.plan&&D.plan.review)push(D.plan.date||today(),D.plan.endTs||0,'🐉',
+  if(D.plan&&D.plan.review)push(D.plan.date||today(),D.plan.endTs||0,navIcon('coach'),
     `<div class="t">コーチ（トレ総評）</div>${mdToHtml(D.plan.review)}`,'coach','',0);
 
   return ev;
@@ -2959,6 +2982,7 @@ render=function(){
   if(_sheet==='fav')renderFav();
   if(_sheet==='edit')renderEdit();
   if(_sheet==='meal')renderMeal();
+  if(_sheet==='newmeal')renderNewMeal();
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
 };
 
@@ -2973,7 +2997,7 @@ openSettings=function(){
   const box=sh.querySelector('.wrap')||sh;
   const d=document.createElement('div');
   d.className='card';
-  d.innerHTML='<h3 style="margin-top:0">🐉 使い方</h3>'+
+  d.innerHTML='<h3 style="margin-top:0">使い方</h3>'+
     '<div class="muted" style="margin-bottom:9px">記録の入口・コーチへの相談・ページの動かし方をもう一度表示します。</div>'+
     '<button class="btn ghost" onclick="showTipAgain()">使い方カードをもう一度出す</button>';
   box.appendChild(d);
@@ -3032,10 +3056,7 @@ function favFoods(limit){
     .sort((a,b)=>b.n!==a.n?b.n-a.n:b.lastI-a.lastI)
     .slice(0,limit||20);
 }
-function mealTypeNow(){
-  const h=new Date().getHours();
-  return h<10?'朝':h<15?'昼':h<18?'間食':'夜';
-}
+function mealTypeNow(){return new Date().toTimeString().slice(0,5);}
 function openFav(){_sheet='fav';document.getElementById('favSheet').classList.add('on');renderFav();}
 function renderFav(){
   const list=favFoods(20);
@@ -3043,7 +3064,7 @@ function renderFav(){
   document.getElementById('favSheet').innerHTML=
    `<div class="sheetbar"><b>⭐️ よく食べるもの</b><button class="close" onclick="closeV7Sheet('favSheet')">✕</button></div>
     <div class="wrap" style="padding-top:14px;padding-bottom:40px">
-      ${list.length?`<div class="muted" style="margin-bottom:10px">タップすると<b>${tp}</b>としてすぐ記録します（あとから直せます）。
+      ${list.length?`<div class="muted" style="margin-bottom:10px">タップすると<b>いまの時刻（${tp}）</b>で記録します（あとから直せます）。
         栄養の数値は前回のものを引き継ぎます。</div>`
         :`<div class="card"><b>まだありません</b><div class="muted" style="margin-top:6px;line-height:1.8">
           食事を「食べたもの」つきで記録すると、同じものがここに並んでタップ1回で記録できるようになります。</div></div>`}
@@ -3056,14 +3077,15 @@ function renderFav(){
               <div class="muted" style="font-size:12px;margin-top:3px">
                 ${f.n}回記録${has?`・${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g`:'・栄養の数値なし'}</div>
             </div>
-            <button class="btn sm" style="flex:0 0 auto;width:auto" onclick="favAdd(${i})">＋ ${tp}に記録</button>
+            <button class="btn sm" style="flex:0 0 auto;width:auto" onclick="favAdd(${i})">＋ いま記録</button>
           </div></div>`;}).join('')}
     </div>`;
 }
 function favAdd(i){
   const f=favFoods(20)[i];if(!f)return;
   const src=f.last||{};
-  const m={id:uid(),date:today(),ts:Date.now(),type:mealTypeNow(),memo:f.label,
+  const now=Date.now();
+  const m={id:uid(),date:today(),ts:now,type:typeFromHour(new Date(now).getHours()),memo:f.label,
     level:src.level||'普通',photoId:''};
   if(mealHasNut(src)){m.kcal=+src.kcal;m.p=+src.p||0;m.f=+src.f||0;m.c=+src.c||0;}
   D.meals.push(m);save();
@@ -3325,6 +3347,151 @@ function renderEdit(){
 }
 
 
+
+/* =====================================================================
+   v7.5
+   ・食事のジャンル分け（朝/昼/夜/間食）をやめ、時刻で扱う（不規則な勤務向け）
+   ・食事の新規記録シート（写真が最上部・カメラ直起動・保存で自動分析）
+   ・盤面に「今日の食事」タイル
+   ===================================================================== */
+
+function hhmm(ts){return ts?new Date(ts).toTimeString().slice(0,5):'';}
+function mealTime(m){
+  if(m&&m.ts)return hhmm(m.ts);
+  /* 昔の記録は時刻を持っていないので、当時のジャンルを時刻の代わりに出す */
+  return (m&&m.type)?m.type:'';
+}
+function tsFromTime(dateStr,tm){
+  const d=new Date((dateStr||today())+'T00:00');
+  const a=String(tm||'').split(':');
+  d.setHours(+a[0]||0,+a[1]||0,0,0);
+  return d.getTime();
+}
+/* ジャンルは表に出さないが、古い集計コードとの互換のため裏で入れておく */
+function typeFromHour(h){return h<10?'朝':h<15?'昼':h<18?'間食':'夜';}
+
+/* ---------- 新規の食事記録シート ---------- */
+var _nm={dataUrl:'',level:'普通',busy:false};
+function openNewMeal(){
+  _nm={dataUrl:'',level:'普通',busy:false};
+  _sheet='newmeal';
+  document.getElementById('newMealSheet').classList.add('on');
+  renderNewMeal();
+}
+function closeNewMeal(){
+  _sheet=null;_nm={dataUrl:'',level:'普通',busy:false};
+  document.getElementById('newMealSheet').classList.remove('on');
+  render();
+}
+function nmLevel(l){_nm.level=l;renderNewMeal();}
+async function nmPick(input){
+  const f=input.files&&input.files[0];if(!f)return;
+  _nm.dataUrl=await fileToDataUrl(f);
+  renderNewMeal();
+}
+function nmClearPhoto(){_nm.dataUrl='';renderNewMeal();}
+function renderNewMeal(){
+  const sh=document.getElementById('newMealSheet');if(!sh)return;
+  const memo=(document.getElementById('nmMemo')||{}).value||'';
+  const tm=(document.getElementById('nmTime')||{}).value||new Date().toTimeString().slice(0,5);
+  sh.innerHTML=`
+   <div class="sheetbar"><b>🍽 食事を記録</b><button class="close" onclick="closeNewMeal()">✕</button></div>
+   <div class="wrap" style="padding-top:14px;padding-bottom:40px">
+     ${_nm.dataUrl
+       ? `<img class="mealph" src="${_nm.dataUrl}" alt="いま撮った写真">
+          <div class="row" style="justify-content:center;margin-top:7px">
+            <button class="minibtn" onclick="nmClearPhoto()">写真を撮り直す</button></div>`
+       : `<label class="camzone">
+            <input type="file" accept="image/*" capture="environment" onchange="nmPick(this)" hidden>
+            <span class="camic">📷</span>
+            <b>写真をとる</b>
+            <span class="muted" style="font-size:12px">タップでカメラが開きます（ライブラリからも選べます）</span>
+          </label>`}
+
+     <div class="card" style="margin-top:12px">
+       <h3 style="margin-top:0">食べたもの</h3>
+       <textarea id="nmMemo" class="exmemo" oninput="autoGrow(this)"
+         placeholder="例：鶏むね150g・玄米1杯・サラダ　／　書かなくても保存できます"
+         style="min-height:64px">${esc(memo)}</textarea>
+       <label style="margin-top:10px">時刻</label>
+       <input id="nmTime" type="time" value="${esc(tm)}">
+       <div class="muted" style="font-size:11.5px;margin-top:4px">
+         ジャンル（朝・昼・夜）は使いません。時刻だけで並びます。</div>
+       <label style="margin-top:10px">量の感覚</label>
+       <div class="row">${LEVELS.map(l=>
+         `<button class="chip ${l===_nm.level?'on':''}" onclick="nmLevel('${l}')">${l}</button>`).join('')}</div>
+     </div>
+
+     <button class="btn ${_nm.busy?'gray':''}" ${_nm.busy?'disabled':''} onclick="nmSave()">
+       ${_nm.busy?'保存中…':'保存する'}</button>
+     <div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center;line-height:1.8">
+       ${_nm.dataUrl
+         ? (aiKey()?'保存すると、写真から栄養を自動で見積もります。<br>食材が違ったらタイムラインから直せます。'
+                   :'⚙設定でAPIキーを入れると、写真から栄養を自動で見積もります。')
+         : '写真がなくても、量の感覚から推定して集計します。'}
+     </div>
+     <div style="text-align:center;margin-top:16px">
+       <button class="minibtn" onclick="closeNewMeal();openFav()">⭐️ よく食べるものから選ぶ</button></div>
+   </div>`;
+  setTimeout(()=>{const t=document.getElementById('nmMemo');if(t)autoGrow(t);},20);
+}
+async function nmSave(){
+  if(_nm.busy)return;
+  const memoEl=document.getElementById('nmMemo'),tmEl=document.getElementById('nmTime');
+  const memo=((memoEl&&memoEl.value)||'').trim();
+  const tm=(tmEl&&tmEl.value)||new Date().toTimeString().slice(0,5);
+  const ts=tsFromTime(today(),tm);
+  _nm.busy=true;renderNewMeal();
+  let photoId='';
+  try{
+    if(_nm.dataUrl){photoId=uid();
+      await imgPut({id:photoId,kind:'meal',date:today(),dataUrl:_nm.dataUrl,note:memo});}
+  }catch(e){photoId='';}
+  const m={id:uid(),date:today(),ts:ts,type:typeFromHour(new Date(ts).getHours()),
+    memo:memo,level:_nm.level||'普通',photoId:photoId};
+  D.meals.push(m);save();
+  closeNewMeal();
+  _tlFilter=null;_tlBottom=true;_tlWasTop=true;goPage(1,false);render();
+  if(photoId&&aiKey())analyzeMealPhoto(m.id);
+}
+
+/* ---------- 盤面「今日の食事」タイル ---------- */
+function tlMealList(){
+  const t=today();
+  const ms=(D.meals||[]).filter(m=>m.date===t).slice()
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  if(!ms.length)return `<div class="muted">まだ記録なし</div>
+    <button class="btn" style="margin-top:9px" onclick="event.stopPropagation();openNewMeal()">＋ 食事を記録</button>`;
+  const tot=ms.reduce((a,m)=>a+mealKcal(m),0);
+  return `<div class="muted" style="margin-bottom:6px">${ms.length}回・合計 ${tot}kcal</div>
+    ${ms.slice(0,4).map(m=>`<div style="display:flex;gap:7px;align-items:baseline;
+      padding:4px 0;border-top:1px solid var(--line);font-size:13px">
+      <span class="muted" style="flex:0 0 38px;font-size:11.5px;font-weight:700">${esc(mealTime(m))}</span>
+      <span style="flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${
+        esc((m.memo||'').trim()||aiFoodGuess(m)||'（内容なし）')}</span>
+      <span class="muted" style="flex:0 0 auto;font-size:11.5px">${mealKcal(m)}</span></div>`).join('')}
+    ${ms.length>4?`<div class="muted" style="font-size:11px;margin-top:4px">ほか${ms.length-4}件</div>`:''}
+    <button class="btn sm gray" style="width:100%;margin-top:9px" onclick="event.stopPropagation();openNewMeal()">＋ 食事を記録</button>`;
+}
+
+/* ---------- コーチの一言：記号を落として結論だけ ---------- */
+function plainFirst(txt,max){
+  let s=String(txt||'')
+    .replace(/^\s*(?:FOOD|DATA|MEMO|NOTE\[[^\]]*\])\s*[:：].*$/gmi,'')
+    .replace(/^\s*#{1,4}.*$/gm,'')          /* 見出し行はまるごと落とす */
+    .replace(/^\s*[-*+]\s+/gm,'')
+    .replace(/\*\*/g,'').replace(/`/g,'')
+    .replace(/\s+/g,' ').trim();
+  if(!s)return '';
+  max=max||78;
+  /* まず「最初の一文」が収まるならそれだけ返す（途中で切れた文は読みにくい） */
+  const one=s.match(/^[^。！？]*[。！？]/);
+  if(one&&one[0].length<=max)return one[0];
+  if(s.length<=max)return s;
+  const cut=s.slice(0,max);
+  const p=Math.max(cut.lastIndexOf('。'),cut.lastIndexOf('！'),cut.lastIndexOf('？'));
+  return p>0?cut.slice(0,p+1):cut+'…';
+}
 /* =====================================================================
    ★ 起動はここ（すべての定義が終わったあと）
    ここより上で render() を呼ぶと、まだ初期化されていない宣言に触れて
