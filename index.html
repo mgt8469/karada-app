@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.5</title>
+<title>カラダ管理 v7.6</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -277,6 +277,12 @@
   /* コーチ／自分のアイコン（絵文字をやめた） */
   .tlic .nic{width:17px;height:17px;color:var(--accentD)}
   .tlic .tlme{font-size:12px;font-weight:800;color:#16181c}
+  /* --- トレ中の固定バー（休憩・ラウンドの残り時間） --- */
+  body.v7 #sessbar{align-items:center;gap:10px;padding:8px 12px}
+  .sessTimers{font-size:13.5px;font-variant-numeric:tabular-nums;line-height:1.5;min-height:1.2em;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sessTimers.hot{animation:restpulse 1s infinite alternate ease-in-out}
+  @keyframes restpulse{from{opacity:.62}to{opacity:1}}
 </style>
 </head>
 <body>
@@ -328,6 +334,7 @@
 <div class="sheet" id="favSheet"></div>
 <div class="sheet" id="editSheet"></div>
 <div class="sheet" id="newMealSheet"></div>
+<div class="sheet" id="timerSheet"></div>
 
 <!-- 設定シート -->
 <div class="sheet" id="settingsSheet"></div>
@@ -579,7 +586,7 @@ function exCard(x,i){
   const nmQ=esc(x.name).replace(/'/g,'');
   const head=`<div class="row draghead" style="justify-content:space-between;align-items:center" ontouchstart="dragStart(event,'${x.id}')" onmousedown="dragStart(event,'${x.id}')" title="長押しでドラッグして並べ替え">
       <b style="flex:1 1 auto;min-width:0"><span class="grip">⠿</span> ${i+1}. ${x.part?esc(x.part)+' | ':''}${esc(x.name)}${allDone?' <span class="pill ok">✓済</span>':''}${tm!=null?` <span class="pill ok">⏱${fmtMin(tm)}</span>`:''}</b>
-      <span style="display:flex;gap:2px;flex:0 0 auto"><button class="minibtn" onclick="openAnat('${nmQ}')" title="解剖ページ（効く筋・神経・意識点）">🫀</button><button class="minibtn" onclick="askForm('${nmQ}')" title="AIにフォーム相談"></button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
+      <span style="display:flex;gap:2px;flex:0 0 auto"><button class="minibtn" onclick="openAnat('${nmQ}')" title="解剖ページ（効く筋・神経・意識点）">🫀</button><button class="minibtn" onclick="askForm('${nmQ}')" title="コーチにフォーム相談" style="font-size:12px;font-weight:800">相談</button><button class="minibtn${menuOpen?' on':''}" onclick="toggleExMenu('${x.id}')" title="編集メニュー">⋯</button><button class="minibtn" onclick="toggleCollapse('${x.id}')" title="${x.collapsed?'開く':'畳む'}" style="font-size:16px">${x.collapsed?'▸':'▾'}</button></span></div>
     ${menuOpen?`<div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="minibtn" onclick="renameItem('${x.id}')">✎ 名前</button><button class="minibtn" onclick="planMove(${i},-1)">↑ 上へ</button><button class="minibtn" onclick="planMove(${i},1)">↓ 下へ</button><button class="minibtn" style="color:var(--warn)" onclick="planRemove('${x.id}')">🗑 削除</button></div>`:''}`;
   if(x.collapsed){
     return `<div class="card excard" data-eid="${x.id}" style="padding:12px 15px">${head}
@@ -1424,7 +1431,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.5（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.6（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1612,12 +1619,12 @@ function vCoach(){
        <button class="btn sm" style="width:auto" onclick="sendCoach()">送信（${aiModelChat().includes('sonnet')?'Sonnet':'Haiku'}）</button>
      </div>
    </div>
-   <details class="card" style="margin-top:8px"${D.coachMemo?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📌 コーチが常に覚えておくこと（毎回参照）</summary>
-     <div class="muted" style="font-size:12px;margin-top:6px">ここに書いた内容は毎回コーチに渡される（毎回コピペ不要）。例：「膝を痛めてるので高重量スクワットは避けたい」「水曜は夜勤で軽め」「増量期」。会話の吹き出しの「📌 覚えさせる」から追記もできる。</div>
+   <details class="card" style="margin-top:8px"${D.coachMemo?' open':''}><summary style="cursor:pointer;font-weight:700;list-style:none">📌 絶対に覚えておいてほしいこと（任意・ふだんは不要）</summary>
+     <div class="muted" style="font-size:12px;margin-top:6px"><b>会話の要点は下の「自動記憶」が勝手に貯めているので、ここは基本書かなくて大丈夫。</b>書くのは「絶対に外してほしくない前提」だけ。例：「膝を痛めてるので高重量スクワットは避けたい」「水曜は夜勤で軽め」「増量期」。会話の吹き出しの「📌 覚えさせる」から追記もできる。</div>
      <textarea id="coachMemo" placeholder="コーチに覚えておいてほしいことを書く" style="min-height:70px;margin-top:6px">${esc(D.coachMemo||'')}</textarea>
      <button class="btn sm ghost" style="width:100%;margin-top:6px" onclick="saveCoachMemo()">保存</button>
    </details>
-   <details class="card" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700;list-style:none">🧠 コーチの自動記憶（${(D.coachLog||[]).length}件）</summary>
+   <details class="card" style="margin-top:8px" open><summary style="cursor:pointer;font-weight:700;list-style:none">🧠 コーチの自動記憶（${(D.coachLog||[]).length}件）── ふだんはこれだけでOK</summary>
      <div class="muted" style="font-size:12px;margin-top:6px">相談するたびに、要点をAIが1文にまとめて自動で貯めています（毎回コーチに渡される＝いちいち覚えさせなくてよい）。最新${COACHLOG_MAX}件まで、古いものから自動で消えます。</div>
      ${(D.coachLog||[]).length?(D.coachLog||[]).slice().reverse().map((o,ri)=>{const i=(D.coachLog.length-1-ri);return `<div class="item"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:6px">
        <span style="flex:1;font-size:13px"><span class="muted">${fmtD(o.date)}${o.thread&&o.thread!=='総合'?' ['+esc(o.thread)+']':''}</span> ${esc(o.text)}</span>
@@ -2282,9 +2289,7 @@ function goPage(i,smooth){
 function v7Ind(){
   document.querySelectorAll('#v7ind button').forEach((b,i)=>b.classList.toggle('on',i===_page));
   tlTodayBtn();
-  /* 盤面がトレ画面のときは同じ操作が画面内にあるので、下の固定バーは隠す */
-  const sb=document.getElementById('sessbar');
-  if(sb&&sb.className==='on')sb.style.visibility=(_page===0&&_sheet!=='detail')?'hidden':'visible';
+  /* v7.6：トレ中の固定バーは「どのページからも見える」ことが目的なので隠さない */
 }
 
 /* ---------- 詳細シート（旧レイアウトをそのまま開く） ---------- */
@@ -2759,18 +2764,18 @@ function v7TrainScreen(){
   ensurePlan();window._itemTimes=computeItemTimes();
   const items=D.plan.items||[];
   const vol=items.reduce((a,x)=>a+itemVol(x),0);
-  return `<div class="card">
+  return `<div class="card" style="padding:12px 15px">
       <div class="row" style="justify-content:space-between;align-items:center">
         <b>全体のボリューム</b><b style="font-size:18px">${vol}kg</b></div>
-      <div style="margin-top:8px">${sessCtrl()}</div>
-      <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px">
-        <input type="checkbox" ${D.plan.restOn?'checked':''} onchange="toggleRest()"> 休憩タイマー
+      <label style="display:flex;gap:8px;align-items:center;margin-top:9px;font-size:13px">
+        <input type="checkbox" ${D.plan.restOn?'checked':''} onchange="toggleRest()"> セット完了で休憩
         <input type="number" style="width:52px;padding:4px" value="${D.plan.restSec||60}" onchange="D.plan.restSec=+this.value||60;save()">秒
-        <span class="restDisp" style="margin-left:auto;font-weight:700;color:var(--accent2)"></span></label>
+        <button class="btn sm gray" style="width:auto;margin-left:auto" onclick="openTimer()">⏱ タイマー</button></label>
     </div>
     ${items.length?items.map((x,i)=>exCard(x,i)).join(''):'<div class="card"><div class="muted">種目がありません</div></div>'}
     <button class="btn ghost" onclick="openDetail('トレ','tre','筋トレ')">＋ 種目を追加・過去の記録を見る</button>
-    <div class="muted" style="text-align:center;margin-top:12px;font-size:11.5px">休憩中は → にフリックでタイムラインを眺められます</div>`;
+    <div class="muted" style="text-align:center;margin-top:12px;font-size:11.5px;line-height:1.8">
+      運動時間・休憩の残りは下のバーに出ています。<br>→ にフリックしてもタイマーは見えます</div>`;
 }
 
 /* ---------- 振り返りページ ---------- */
@@ -2972,9 +2977,9 @@ render=function(){
     }
     const sb=document.getElementById('sessbar');
     if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs;
-      if(active){sb.className='on';sb.innerHTML=sessBar();}else{sb.className='';sb.innerHTML='';}
-      /* 盤面がトレ画面のときは同じ操作が画面内にあるので固定バーは隠す */
-      sb.style.visibility=(active&&_page===0)?'hidden':'visible';}
+      if(active){sb.className='on';sb.innerHTML=sessBar();barTick();}
+      else{sb.className='';sb.innerHTML='';}
+      sb.style.visibility='visible';}
     startSessTick();
   }
   if(_sheet==='rec')renderRec();
@@ -2983,6 +2988,7 @@ render=function(){
   if(_sheet==='edit')renderEdit();
   if(_sheet==='meal')renderMeal();
   if(_sheet==='newmeal')renderNewMeal();
+  if(_sheet==='timer')renderTimer();
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
 };
 
@@ -3491,6 +3497,88 @@ function plainFirst(txt,max){
   const cut=s.slice(0,max);
   const p=Math.max(cut.lastIndexOf('。'),cut.lastIndexOf('！'),cut.lastIndexOf('？'));
   return p>0?cut.slice(0,p+1):cut+'…';
+}
+
+/* =====================================================================
+   v7.6
+   ・トレ中は「どのページからも」休憩カウントダウンが見える（v7で消していた）
+   ・インターバルタイマー（ラウンド）をトレ中いつでも開ける＋残り時間を下のバーに出す
+   ===================================================================== */
+
+/* ---------- 休憩・インターバルの残り時間を、再描画しても消えない形で持つ ---------- */
+/* もとの実装は .restDisp の textContent に直接書いていたので、
+   render() で HTML が作り直されるたびに消えていた。状態から毎回作り直す */
+function restLabel(){
+  if(window._restLeft>0)return '休憩 '+window._restLeft+'秒';
+  if(window._restDone)return '休憩おわり';
+  return '';
+}
+function ivLabel(){
+  if(!_iv||!_iv.run)return '';
+  return (_iv.phase==='work'?'運動':'休憩')+' '+_iv.left+'秒（'+_iv.round+'/'+_iv.rounds+'）';
+}
+/* 元の関数を包んで、状態も残すようにする */
+const legacyStartRest=startRest;
+startRest=function(sec){window._restDone=false;legacyStartRest(sec);};
+const legacySkipRest=skipRest;
+skipRest=function(){window._restDone=false;window._restLeft=0;legacySkipRest();barTick();};
+const legacySetRestText=setRestText;
+setRestText=function(t){
+  if(t==='休憩おわり💪'||t==='休憩おわり')window._restDone=true;
+  legacySetRestText(t);barTick();
+};
+const legacyIvRender=ivRender;
+ivRender=function(){legacyIvRender();barTick();};
+
+/* ---------- 下の固定バーを、状態から作り直す ---------- */
+function barTick(){
+  const el=document.getElementById('sessTimers');if(!el)return;
+  const r=restLabel(),v=ivLabel();
+  el.innerHTML=[r?`<b style="color:var(--accent2)">${r}</b>`:'',
+                v?`<b style="color:var(--accentD)">${v}</b>`:''].filter(Boolean).join(
+                '<span class="muted" style="margin:0 5px">/</span>');
+  el.classList.toggle('hot',!!(window._restLeft>0)||!!(_iv&&_iv.run));
+}
+/* sessBar を v7 用に作り直す（休憩の残り秒とラウンドを常に出す） */
+const legacySessBar=sessBar;
+sessBar=function(){
+  const p=D.plan;
+  const pauseBtn=p.paused
+    ?`<button class="btn sm" style="width:auto;padding:8px 13px" onclick="sessResume()">▶ 再開</button>`
+    :`<button class="btn gray sm" style="width:auto;padding:8px 11px" onclick="sessPause()">⏸</button>`;
+  const skipBtn=p.restOn?`<button class="btn gray sm" style="width:auto;padding:8px 9px" onclick="skipRest()">⏭</button>`:'';
+  return `<div style="flex:1 1 auto;min-width:0">
+      <div style="display:flex;align-items:center;gap:7px">
+        <span style="font-size:12px;color:var(--sub)">運動</span>
+        <b class="sessElapsed" style="font-variant-numeric:tabular-nums;font-size:19px">${fmtT(Math.floor(elapsedSec()))}</b>
+        <button class="v7ico" style="font-size:15px;padding:2px 5px" onclick="openTimer()" aria-label="タイマー">⏱</button>
+      </div>
+      <div id="sessTimers" class="sessTimers"></div>
+    </div>
+    <span style="flex:0 0 auto;display:flex;gap:6px;align-items:center">
+      ${skipBtn}${pauseBtn}<button class="btn warn sm" style="width:auto;padding:8px 12px" onclick="sessEnd()">■完了</button></span>`;
+};
+
+/* ---------- タイマーのシート（ストップウォッチ＋インターバル） ---------- */
+function openTimer(){
+  _sheet='timer';
+  document.getElementById('timerSheet').classList.add('on');
+  renderTimer();
+}
+function closeTimer(){
+  _sheet=null;
+  document.getElementById('timerSheet').classList.remove('on');
+  render();
+}
+function renderTimer(){
+  const sh=document.getElementById('timerSheet');if(!sh)return;
+  sh.innerHTML=`<div class="sheetbar"><b>⏱ タイマー</b>
+      <button class="close" onclick="closeTimer()">✕</button></div>
+    <div class="wrap" style="padding-top:14px;padding-bottom:40px">
+      <div class="banner">動かしたまま閉じても大丈夫。残り時間は画面の下のバーに出続けます。</div>
+      ${vTimer()}
+    </div>`;
+  setTimeout(barTick,10);
 }
 /* =====================================================================
    ★ 起動はここ（すべての定義が終わったあと）
