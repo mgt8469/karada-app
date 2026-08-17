@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.0</title>
+<title>カラダ管理 v7.1</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -187,6 +187,20 @@
   .ibtn{flex:0 0 auto;width:44px;height:44px;border-radius:50%;border:none;background:var(--accent);
     color:#16181c;font-size:22px;font-weight:800;cursor:pointer;line-height:1;font-family:inherit}
   .ibtn.gray{background:var(--chip);color:var(--sub);font-size:19px}
+  #recBtn{flex:0 0 auto;height:44px;padding:0 14px 0 11px;border-radius:22px;border:none;background:var(--accent);
+    color:#16181c;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;gap:4px;line-height:1}
+  #recBtn b{font-size:20px;font-weight:800}
+  #tlToday{position:absolute;right:14px;bottom:74px;z-index:22;display:none;border:1px solid var(--accentD);
+    background:var(--card);color:var(--accentD);font-weight:800;font-size:12.5px;padding:9px 14px;border-radius:999px;
+    box-shadow:0 4px 14px rgba(20,30,50,.16);cursor:pointer;font-family:inherit}
+  #tlToday.on{display:block}
+  .tipcard{background:var(--card);border:1.5px solid var(--accentD);border-radius:var(--r);padding:14px;
+    margin-bottom:12px;box-shadow:var(--shadow)}
+  .tipcard h3{margin:0 0 8px;font-size:14px}
+  .tipcard ul{margin:0;padding-left:1.1em;font-size:13px;line-height:1.85}
+  .tipcard .k{display:inline-block;background:var(--accent);color:#16181c;border-radius:8px;
+    padding:1px 7px;font-weight:800;font-size:12px}
   body.v7 #sessbar{bottom:calc(env(safe-area-inset-bottom) + 61px);z-index:35}
   body.v7 #nav{display:none}
   body.detail #nav{display:flex;z-index:41}
@@ -253,8 +267,9 @@
     <section class="page" id="pgTL"></section>
     <section class="page" id="pgLook"></section>
   </div>
+  <button id="tlToday" onclick="tlGoToday()">↓ 今日へ</button>
   <div id="inputbar">
-    <button class="ibtn" onclick="openRec()" aria-label="記録する">＋</button>
+    <button id="recBtn" onclick="openRec()"><b>＋</b>記録</button>
     <textarea id="v7in" rows="1" placeholder="コーチに相談…" oninput="autoGrow(this)"></textarea>
     <button class="ibtn gray" onclick="v7Send()" aria-label="送信">↑</button>
   </div>
@@ -1336,7 +1351,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.0（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.1（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2104,7 +2119,21 @@ render();
    ===================================================================== */
 
 let _page=0, _sheet=null, _edit=false, _tlDays=30, _tlJump=null, _tlFilter=null,
-    _tlBottom=true, _coachInit=false, _sq='';
+    _tlBottom=true, _coachInit=false, _sq='', _tlPrevTop=0, _tlWasBottom=true;
+
+/* タイムラインが一番下（＝今日）にいるか。少しの余白は「下にいる」とみなす */
+function tlAtBottom(el){el=el||document.getElementById('pgTL');
+  return !el||(el.scrollHeight-el.scrollTop-el.clientHeight)<48;}
+function tlTodayBtn(){
+  const b=document.getElementById('tlToday');if(!b)return;
+  b.classList.toggle('on',_page===1&&_sheet===null&&!tlAtBottom());
+}
+function tlGoToday(){
+  const el=document.getElementById('pgTL');if(!el)return;
+  _tlFilter=null;
+  el.scrollTo?el.scrollTo({top:el.scrollHeight,behavior:'smooth'}):el.scrollTop=el.scrollHeight;
+  setTimeout(tlTodayBtn,400);
+}
 
 const V7TILES={
   tre:{label:'今日のトレ'},
@@ -2154,6 +2183,7 @@ function goPage(i,smooth){
 }
 function v7Ind(){
   document.querySelectorAll('#v7ind button').forEach((b,i)=>b.classList.toggle('on',i===_page));
+  tlTodayBtn();
   /* 盤面がトレ画面のときは同じ操作が画面内にあるので、下の固定バーは隠す */
   const sb=document.getElementById('sessbar');
   if(sb&&sb.className==='on')sb.style.visibility=(_page===0&&_sheet!=='detail')?'hidden':'visible';
@@ -2172,8 +2202,11 @@ function closeDetail(){
   _sheet=null;
   document.getElementById('detailSheet').classList.remove('on');
   document.body.classList.remove('detail');
+  /* 記録の画面から戻ったら、入った記録が見えるように今日のタイムラインへ */
+  if(_fromRec){_fromRec=false;_tlFilter=null;_tlBottom=true;_tlWasBottom=true;goPage(1,false);}
   render();
 }
+let _fromRec=false;
 function closeV7Sheet(id){
   _sheet=null;document.getElementById(id).classList.remove('on');render();
 }
@@ -2201,7 +2234,7 @@ function renderRec(){
 }
 function recGo(t,k,v){
   document.getElementById('recSheet').classList.remove('on');
-  _sheet=null;openDetail(t,k,v);
+  _sheet=null;_fromRec=true;openDetail(t,k,v);
 }
 
 /* ---------- 検索シート（日付ジャンプ・種目名） ---------- */
@@ -2261,9 +2294,25 @@ const TILE_JUMP={tre:'workout',sore:'sore',coach:'coach',sup:'sup',nut:'meal',me
 function tileTap(key){
   if(_edit)return;
   if(key==='tre'&&!(D.plan&&D.plan.startTs&&!D.plan.endTs)&&!(D.plan&&D.plan.items||[]).length){openDetail('トレ','tre','筋トレ');return;}
-  _tlFilter=TILE_JUMP[key]||null;_tlBottom=true;goPage(1);render();
+  _tlFilter=TILE_JUMP[key]||null;_tlBottom=true;_tlWasBottom=true;goPage(1);render();
 }
 
+function v7Tip(){
+  if(D.v7Tip)return '';
+  return `<div class="tipcard">
+    <h3>🐉 使い方（最初だけ）</h3>
+    <ul>
+      <li><b>記録する</b>は左下の <span class="k">＋ 記録</span>。トレ・食事・サプリ・採寸・体調・筋肉痛・写真・ランがここに全部あります</li>
+      <li><b>コーチに相談</b>は下の入力欄に文章を打って ↑。記録は入りません（相談だけ）</li>
+      <li><b>左右にフリック</b>でページ移動。盤面 → タイムライン → 振り返り</li>
+      <li><b>タイルをタップ</b>すると、そのことだけを集めたタイムラインに飛びます</li>
+    </ul>
+    <button class="btn sm gray" style="width:100%;margin-top:11px" onclick="D.v7Tip=1;save();render()">わかった（もう出さない）</button>
+    <div class="muted" style="font-size:11px;margin-top:6px;text-align:center">あとから ⚙設定 の一番下で読み直せます</div>
+  </div>`;
+}
+function showTipAgain(){D.v7Tip=0;save();_sheet=null;
+  document.getElementById('settingsSheet').classList.remove('on');goPage(0,false);render();}
 function v7Board(){
   ensurePlan();ensureBoard();
   const running=D.plan.startTs&&!D.plan.endTs;
@@ -2271,7 +2320,7 @@ function v7Board(){
   const b=ensureBoard();
   const shown=_edit?b:b.filter(t=>!t.hidden);
   return `${_edit?`<div class="banner">編集モード：↑↓で並べ替え／⤢で大きさ／👁で表示・非表示
-      <button class="btn sm" style="width:auto;margin-top:8px" onclick="tileEditDone()">完了</button></div>`:''}
+      <button class="btn sm" style="width:auto;margin-top:8px" onclick="tileEditDone()">完了</button></div>`:v7Tip()}
     <div class="tiles">${shown.map(t=>v7Tile(t)).join('')}</div>
     ${_edit?'':`<div class="muted" style="text-align:center;margin-top:16px;font-size:11.5px">
       タイルを長押しすると並べ替え・大きさ変更・非表示ができます</div>`}`;
@@ -2456,7 +2505,7 @@ function v7CalNav(d){_calM.m+=d;if(_calM.m<0){_calM.m=11;_calM.y--;}if(_calM.m>1
 function jumpToDate(ds){
   const need=Math.ceil((new Date(today()+'T00:00')-new Date(ds+'T00:00'))/864e5)+2;
   if(need>_tlDays)_tlDays=need;
-  _tlFilter=null;_tlJump=ds;_tlBottom=false;
+  _tlFilter=null;_tlJump=ds;_tlBottom=false;_tlWasBottom=false;
   goPage(1);render();
 }
 function v7Look(){
@@ -2530,8 +2579,12 @@ function v7Timeline(){
     ${_tlFilter
       ? `<button class="chip on" style="margin:0" onclick="_tlFilter=null;render()">${FN[_tlFilter]||_tlFilter}だけ表示中 ✕</button>`
       : `<span class="muted" style="font-size:11.5px">直近${_tlDays}日</span>`}</div>`;
-  if(!dates.length)return h+`<div class="card" style="margin-top:12px"><div class="muted">
-    まだ記録がありません。下の「＋」から記録するか、話しかけてみてください。</div></div>`;
+  if(!dates.length)return h+`<div class="card" style="margin-top:12px">
+    <b>${_tlFilter?'このことの記録はまだありません':'まだ記録がありません'}</b>
+    <div class="muted" style="margin-top:6px;line-height:1.8">
+      記録は左下の <span class="k">＋ 記録</span> から。<br>
+      下の入力欄に文章を打つとコーチへの相談になります（記録は入りません）。</div>
+    <button class="btn" style="margin-top:10px" onclick="openRec()">＋ 記録する</button></div>`;
   dates.forEach(d=>{
     h+=`<div class="tlday" id="tl-${d}"><b>${d===today()?'今日':fmtD(d)}</b><i></i></div>`;
     byDate[d].forEach(e=>{h+=`<div class="tlrow ${e.cls}"><div class="tlic">${e.icon}</div><div class="tlbody">${e.html}</div></div>`;});
@@ -2554,6 +2607,8 @@ render=function(){
   ensureBoard();stampCoach();
   const detail=(_sheet==='detail');
   document.body.classList.toggle('detail',detail);
+  const _tl=document.getElementById('pgTL');
+  if(_tl&&!detail){_tlPrevTop=_tl.scrollTop;_tlWasBottom=tlAtBottom(_tl);}
   const pgL=document.getElementById('pgLook'),pgB=document.getElementById('pgBoard'),pgT=document.getElementById('pgTL');
   if(detail){
     if(pgL)pgL.innerHTML='';if(pgB)pgB.innerHTML='';if(pgT)pgT.innerHTML='';
@@ -2571,8 +2626,16 @@ render=function(){
     v7Ind();
     try{if(document.getElementById('chartPick'))drawChart();}catch(e){}
     if(pgT)loadCalThumbs(pgT);
-    if(_tlJump&&pgT){const el=document.getElementById('tl-'+_tlJump);if(el)pgT.scrollTop=Math.max(0,el.offsetTop-10);_tlJump=null;}
-    else if(_tlBottom&&pgT){pgT.scrollTop=pgT.scrollHeight;_tlBottom=false;}
+    /* タイムラインのスクロール位置を保つ。innerHTML を入れ替えると 0 に戻るので必ず戻す。
+       一番下（＝今日）にいた場合と初回は、そのまま一番下へ */
+    if(pgT){
+      if(_tlJump){const el=document.getElementById('tl-'+_tlJump);
+        pgT.scrollTop=el?Math.max(0,el.offsetTop-10):pgT.scrollHeight;_tlJump=null;}
+      else if(_tlBottom||_tlWasBottom)pgT.scrollTop=pgT.scrollHeight;
+      else pgT.scrollTop=_tlPrevTop;
+      _tlBottom=false;
+      tlTodayBtn();
+    }
     const sb=document.getElementById('sessbar');
     if(sb){const p=D.plan;const active=p&&p.startTs&&!p.endTs;
       if(active){sb.className='on';sb.innerHTML=sessBar();}else{sb.className='';sb.innerHTML='';}
@@ -2586,6 +2649,20 @@ render=function(){
 /* 旧コードの setTab（コーチ相談へ飛ぶ等）を詳細シートに繋ぐ */
 setTab=function(t){tab=t;openDetail(t);};
 
+/* 設定の一番下に「使い方をもう一度」 */
+const legacyOpenSettings=openSettings;
+openSettings=function(){
+  legacyOpenSettings();
+  const sh=document.getElementById('settingsSheet');
+  const box=sh.querySelector('.wrap')||sh;
+  const d=document.createElement('div');
+  d.className='card';
+  d.innerHTML='<h3 style="margin-top:0">🐉 使い方</h3>'+
+    '<div class="muted" style="margin-bottom:9px">記録の入口・コーチへの相談・ページの動かし方をもう一度表示します。</div>'+
+    '<button class="btn ghost" onclick="showTipAgain()">使い方カードをもう一度出す</button>';
+  box.appendChild(d);
+};
+
 /* ---------- 起動 ---------- */
 document.body.classList.add('v7');
 ensureBoard();stampCoach();_coachInit=true;
@@ -2593,7 +2670,9 @@ ensureBoard();stampCoach();_coachInit=true;
   const p=pagerEl();
   if(p)p.addEventListener('scroll',function(){
     const i=Math.round(p.scrollLeft/Math.max(1,p.clientWidth));
-    if(i!==_page){_page=i;v7Ind();}},{passive:true});
+    if(i!==_page){_page=i;v7Ind();tlTodayBtn();}},{passive:true});
+  const tl=document.getElementById('pgTL');
+  if(tl)tl.addEventListener('scroll',tlTodayBtn,{passive:true});
   const inp=document.getElementById('v7in');
   if(inp)inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();v7Send();}});
