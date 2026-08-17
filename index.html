@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.2</title>
+<title>カラダ管理 v7.3</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -248,6 +248,25 @@
   .tlbody.tap{cursor:pointer}
   .tlbody.tap:active{background:var(--card2)}
   .editmark{float:right;font-size:11px;color:var(--accentD);font-weight:800}
+  /* --- コーチの文章を読みやすく（v7.3）--- */
+  .mdp{margin:0 0 9px;line-height:1.85}
+  .mdp:last-child{margin-bottom:0}
+  .mdh{font-weight:800;line-height:1.4;margin:14px 0 6px;letter-spacing:.01em}
+  .mdh:first-child{margin-top:0}
+  .mdh1{font-size:16px;border-left:4px solid var(--accentD);padding-left:8px}
+  .mdh2{font-size:15px}
+  .mdh3{font-size:13.5px;color:var(--accentD)}
+  .mdul,.mdol{margin:2px 0 10px;padding-left:1.25em}
+  .mdul:last-child,.mdol:last-child{margin-bottom:0}
+  .mdul li,.mdol li{margin:5px 0;line-height:1.8;padding-left:2px}
+  .mdul{list-style:none;padding-left:1.1em}
+  .mdul li{position:relative}
+  .mdul li::before{content:'';position:absolute;left:-0.95em;top:.62em;width:6px;height:6px;
+    border-radius:50%;background:var(--accentD)}
+  .mdcode{background:var(--chip);border-radius:5px;padding:1px 6px;font-size:.93em}
+  .tlbody .mdp,.cbub .mdp{font-size:14px}
+  .cbub.assistant{max-width:94%}
+  #favSheet .card,#editSheet .card{margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -275,7 +294,7 @@
     <section class="page" id="pgTL"></section>
     <section class="page" id="pgLook"></section>
   </div>
-  <button id="tlToday" onclick="tlGoToday()">↓ 今日へ</button>
+  <button id="tlToday" onclick="tlGoToday()">↑ 今日へ</button>
   <div id="inputbar">
     <button id="recBtn" onclick="openRec()"><b>＋</b>記録</button>
     <textarea id="v7in" rows="1" placeholder="コーチに相談…" oninput="autoGrow(this)"></textarea>
@@ -296,6 +315,8 @@
 <div class="sheet" id="recSheet"></div>
 <div class="sheet" id="searchSheet"></div>
 <div class="sheet" id="mealSheet"></div>
+<div class="sheet" id="favSheet"></div>
+<div class="sheet" id="editSheet"></div>
 
 <!-- 設定シート -->
 <div class="sheet" id="settingsSheet"></div>
@@ -338,14 +359,43 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const today=()=>new Date().toISOString().slice(0,10);
 const fmtD=s=>{const d=new Date(s+'T00:00');return (d.getMonth()+1)+'/'+d.getDate();};
 const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-function mdToHtml(s){let h=esc(s||'');
-  h=h.replace(/^\s{0,3}#{1,4}\s*(.+?)\s*$/gm,'<div style="font-weight:800;margin:9px 0 3px">$1</div>');
-  h=h.replace(/^\s*(?:[-*]\s+|・\s*)(.+)$/gm,'<div style="padding-left:1.1em;text-indent:-0.8em;margin:2px 0">• $1</div>');
-  h=h.replace(/^\s*(\d+)[.)]\s+(.+)$/gm,'<div style="padding-left:1.4em;text-indent:-1.4em;margin:2px 0">$1. $2</div>');
-  h=h.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
-  h=h.replace(/(<\/div>)\n/g,'$1');
-  h=h.replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');
-  return h;}
+function mdToHtml(s){
+  const src=String(s||'').replace(/\r/g,'');
+  const inline=t=>{
+    let h=esc(t);
+    /* 数字＋単位は自動で太字にする（重量・回数・kcal など一番見たいところ） */
+    h=h.replace(/(\d+(?:\.\d+)?\s?(?:kg|g|kcal|回|セット|分|秒|cm|%|km))/g,'<b>$1</b>');
+    h=h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+    h=h.replace(/`([^`]+)`/g,'<code class="mdcode">$1</code>');
+    return h;
+  };
+  const lines=src.split('\n');
+  let out='',list=null,para=[];
+  const flushPara=()=>{if(para.length){out+='<p class="mdp">'+para.map(inline).join('<br>')+'</p>';para=[];}};
+  const closeList=()=>{if(list){out+='</'+list+'>';list=null;}};
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i];
+    const t=raw.trim();
+    if(!t){flushPara();closeList();continue;}
+    const h=t.match(/^(#{1,4})\s*(.+)$/);
+    if(h){flushPara();closeList();
+      const lv=Math.min(3,h[1].length);
+      out+='<div class="mdh mdh'+lv+'">'+inline(h[2])+'</div>';continue;}
+    /* 「- 」「* 」のように後ろに空白が要る。そうしないと行頭の **太字** が箇条書きになる */
+    const b=t.match(/^(?:[-*+]\s+|[・•]\s*)(.+)$/);
+    if(b){flushPara();
+      if(list!=='ul'){closeList();out+='<ul class="mdul">';list='ul';}
+      out+='<li>'+inline(b[1])+'</li>';continue;}
+    const n=t.match(/^(\d+)[.)]\s*(.+)$/);
+    if(n){flushPara();
+      if(list!=='ol'){closeList();out+='<ol class="mdol">';list='ol';}
+      out+='<li>'+inline(n[2])+'</li>';continue;}
+    if(list){closeList();}
+    para.push(t);
+  }
+  flushPara();closeList();
+  return out||'<p class="mdp"></p>';
+}
 
 /* ============ 画像層 (IndexedDB) ============ */
 let _db;
@@ -981,7 +1031,7 @@ function vMeal(){
 async function saveMeal(){const memo=document.getElementById('mMemo').value.trim();
   const f=document.getElementById('mPhoto').files[0];let photoId='';
   if(f){photoId=uid();const dataUrl=await fileToDataUrl(f);await imgPut({id:photoId,kind:'meal',date:document.getElementById('mDate').value,dataUrl,note:memo});}
-  D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoId});
+  D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),ts:Date.now(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoId});
   _mealLevel='普通';save();render();}
 function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
   const has=mealHasNut(m);
@@ -1363,7 +1413,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.2（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.3（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1432,6 +1482,27 @@ function aiContext(){const L=[];
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
 function aiSystem(focus){const p=D.profile;const focusLine=focus?`【今回の話題】種目「${focus}」に集中したスレッドです。${focus}に関する相談・フォーム・記録を中心に答えて。\n`:'';
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
+【書き方＝最重要。ここを守らないと読まれません】
+◆長い文章のかたまりは禁止。スマホの縦画面で読むので、必ず次の形で書く。
+- 最初の1〜2行に結論だけを書く。前置き・おさらい・「〜ですね」の共感文はいらない
+- 1段落は最大2行。3行以上つなげない
+- 話題が2つ以上あるときは必ず「## 見出し」で区切る
+- 並ぶもの（種目・セット・注意点・候補・手順）は必ず箇条書き「- 」にする。文章に詰め込まない
+- 重量・回数・kcal・g・分などの数字と、結論のことばは **太字**
+- 全体はスマホ2画面ぶん以内。入りきらないなら削る（足さない）
+◆使える書式：「## 見出し」「- 箇条書き」「1. 番号つき」「**太字**」。これ以外の記号装飾は使わない
+◆悪い例：「まず前提として、部分痩せは不可能であり、全身の体脂肪率が下がるにつれて…（長い説明が続く）」
+◆良い例：
+**内転筋が主動になっている可能性**が高いです。
+
+## 直すこと
+- 膝を足先の方向へ開く
+- 立ち上がりは**股関節伸展**で始める
+
+## 次回のセット
+- **40kg × 8回 × 3セット**
+- 効かない感じが続くなら**30kg**まで落としてフォーム優先
+
 【回答スタイル】相手は医療従事者で基礎知識は十分。「部分痩せは不可／全身運動が必要／カロリー収支」等の一般論・前置き・教科書的説明は繰り返さない。結論と具体的・個別の助言（種目名・回数・重量・順番・意識点など）を短く。冗長な安全注意も不要。要点は太字や箇条書きで簡潔に、全体は短め。
 【メモの自動保存＝最重要ルール】アプリが回答末尾の専用行を解析し、あなたの代わりに自動で書き込む。ユーザーは絶対にコピペしない。
 ◆禁止：「コピーしておいてください」「メモ欄に貼り付けてください」「以下を控えて」等の"ユーザーに手作業させる案内"は一切しない。代わりに必ず下の専用行を出力する（それだけで保存される）。
@@ -2131,19 +2202,19 @@ render();
    ===================================================================== */
 
 let _page=0, _sheet=null, _edit=false, _tlDays=30, _tlJump=null, _tlFilter=null,
-    _tlBottom=true, _coachInit=false, _sq='', _tlPrevTop=0, _tlWasBottom=true;
+    _tlBottom=true, _coachInit=false, _sq='', _tlPrevTop=0, _tlWasTop=true;
 
-/* タイムラインが一番下（＝今日）にいるか。少しの余白は「下にいる」とみなす */
-function tlAtBottom(el){el=el||document.getElementById('pgTL');
-  return !el||(el.scrollHeight-el.scrollTop-el.clientHeight)<48;}
+/* v7.3：タイムラインは「新しいものが上」。今日＝一番上 */
+function tlAtToday(el){el=el||document.getElementById('pgTL');
+  return !el||el.scrollTop<48;}
 function tlTodayBtn(){
   const b=document.getElementById('tlToday');if(!b)return;
-  b.classList.toggle('on',_page===1&&_sheet===null&&!tlAtBottom());
+  b.classList.toggle('on',_page===1&&_sheet===null&&!tlAtToday());
 }
 function tlGoToday(){
   const el=document.getElementById('pgTL');if(!el)return;
   _tlFilter=null;
-  el.scrollTo?el.scrollTo({top:el.scrollHeight,behavior:'smooth'}):el.scrollTop=el.scrollHeight;
+  el.scrollTo?el.scrollTo({top:0,behavior:'smooth'}):el.scrollTop=0;
   setTimeout(tlTodayBtn,400);
 }
 
@@ -2215,7 +2286,7 @@ function closeDetail(){
   document.getElementById('detailSheet').classList.remove('on');
   document.body.classList.remove('detail');
   /* 記録の画面から戻ったら、入った記録が見えるように今日のタイムラインへ */
-  if(_fromRec){_fromRec=false;_tlFilter=null;_tlBottom=true;_tlWasBottom=true;goPage(1,false);}
+  if(_fromRec){_fromRec=false;_tlFilter=null;_tlBottom=true;_tlWasTop=true;goPage(1,false);}
   render();
 }
 let _fromRec=false;
@@ -2239,6 +2310,7 @@ function renderRec(){
   document.getElementById('recSheet').innerHTML=
    `<div class="sheetbar"><b>＋ 記録する</b><button class="close" onclick="closeV7Sheet('recSheet')">✕</button></div>
     <div class="wrap" style="padding-top:14px">
+      <button class="btn" style="margin-bottom:12px" onclick="closeV7Sheet('recSheet');openFav()">⭐️ よく食べるものから記録</button>
       <div class="rgrid">${REC_ITEMS.map(([ic,l,t,k,v])=>
         `<button class="rbtn" onclick="recGo('${t}','${k}','${v}')"><span>${ic}</span>${l}</button>`).join('')}</div>
       <div class="muted" style="margin-top:14px;font-size:12px">※ 文章を打って送ればコーチへの相談になります（LINEと同じ）</div>
@@ -2316,7 +2388,9 @@ function mealClearNut(id){
   m.kcal='';m.p='';m.f='';m.c='';save();renderMeal();
 }
 async function mealDelete(id){
-  if(!confirm('この食事の記録を消す？'))return;
+  const m=(D.meals||[]).find(x=>x.id===id);
+  const what=m?`${fmtD(m.date)}の${m.type||'食事'}${(m.memo||'').trim()?'「'+m.memo.trim().slice(0,20)+'」':''}`:'この記録';
+  if(!confirm(what+'を消します。戻せません。よろしいですか？'))return;
   await delMeal(id);
   closeMeal();
 }
@@ -2374,7 +2448,9 @@ function renderMeal(){
         <button class="del" onclick="mealSet('${m.id}','aiNote','');renderMeal()">消す</button></div>
        <div style="font-size:13px;line-height:1.75;white-space:pre-wrap;margin-top:6px">${esc(m.aiNote)}</div></div>`:''}
 
-     <button class="btn warn" onclick="mealDelete('${m.id}')">この記録を削除</button>
+     <button class="btn" onclick="closeMeal()">✓ 完了</button>
+     <div style="text-align:center;margin-top:14px">
+       <button class="del" style="font-size:12.5px" onclick="mealDelete('${m.id}')">この記録を削除する</button></div>
    </div>`;
   loadCalThumbs(sh);
   setTimeout(()=>{const t=document.getElementById('mealMemo');if(t)autoGrow(t);},20);
@@ -2486,7 +2562,7 @@ const TILE_JUMP={tre:'workout',sore:'sore',coach:'coach',sup:'sup',nut:'meal',me
 function tileTap(key){
   if(_edit)return;
   if(key==='tre'&&!(D.plan&&D.plan.startTs&&!D.plan.endTs)&&!(D.plan&&D.plan.items||[]).length){openDetail('トレ','tre','筋トレ');return;}
-  _tlFilter=TILE_JUMP[key]||null;_tlBottom=true;_tlWasBottom=true;goPage(1);render();
+  _tlFilter=TILE_JUMP[key]||null;_tlBottom=true;_tlWasTop=true;goPage(1);render();
 }
 
 function v7Tip(){
@@ -2697,7 +2773,7 @@ function v7CalNav(d){_calM.m+=d;if(_calM.m<0){_calM.m=11;_calM.y--;}if(_calM.m>1
 function jumpToDate(ds){
   const need=Math.ceil((new Date(today()+'T00:00')-new Date(ds+'T00:00'))/864e5)+2;
   if(need>_tlDays)_tlDays=need;
-  _tlFilter=null;_tlJump=ds;_tlBottom=false;_tlWasBottom=false;
+  _tlFilter=null;_tlJump=ds;_tlBottom=false;_tlWasTop=false;
   goPage(1);render();
 }
 function v7Look(){
@@ -2716,19 +2792,30 @@ function v7Events(days){
   const ev=[];
   const lim=new Date();lim.setDate(lim.getDate()-days);
   const limS=lim.toISOString().slice(0,10);
-  const push=(date,ts,icon,html,kind,cls)=>{if(date&&date>=limS)ev.push({date:date,ts:ts||0,icon:icon,html:html,kind:kind,cls:cls||''});};
+  /* seq＝配列内の位置。時刻が無い記録は「あとから記録したもの＝新しい」として扱う */
+  const push=(date,ts,icon,html,kind,cls,seq,extra)=>{
+    if(!date||date<limS)return;
+    ev.push({date:date,ts:ts||0,icon:icon,html:html,kind:kind,cls:cls||'',
+      seq:seq||0,hour:evHour(kind,extra)});
+  };
+  const fix=(kind,id)=>`<span class="editmark" onclick="event.stopPropagation();openEdit('${kind}','${id}')">✏️ 直す</span>`;
+  const wrap=(kind,id,inner)=>`<div onclick="openEdit('${kind}','${id}')" style="cursor:pointer">${fix(kind,id)}${inner}</div>`;
 
-  (D.workouts||[]).forEach(w=>push(w.date,0,'🏋️',
-    `<b>${esc(w.name)}</b>${setChips(w.sets)}${w.memo?`<div class="muted" style="margin-top:4px">${esc(w.memo)}</div>`:''}`,'workout'));
-  (D.runs||[]).forEach(r=>push(r.date,0,'🏃',
-    `<b>ラン ${esc(String(r.km||'-'))}km</b> <span class="muted">${esc(String(r.min||''))}${r.min?'分':''}</span>${
-      r.memo?`<div class="muted">${esc(r.memo)}</div>`:''}`,'workout'));
-  (D.sessions||[]).forEach(s=>push(s.date,s.endTs||0,'⏱',
-    `<b>トレ終了</b> <span class="muted">${fmtMin(s.totalSec)}・${(s.items||[]).length}種目</span>`,'workout'));
-  (D.meals||[]).forEach(m=>push(m.date,0,'🍽',
-    `<div onclick="openMeal('${m.id}')" style="cursor:pointer">
-      <span class="editmark">✏️ 直す</span>
-      <b>${esc(m.type||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
+  (D.workouts||[]).forEach((w,i)=>push(w.date,0,'🏋️',
+    wrap('workout',w.id,`<b>${esc(w.name)}</b>${setChips(w.sets)}${
+      w.memo?`<div class="muted" style="margin-top:4px">${esc(w.memo)}</div>`:''}`),'workout','',i));
+
+  (D.runs||[]).forEach((r,i)=>push(r.date,0,'🏃',
+    wrap('run',r.id,`<b>ラン ${esc(String(r.km||'-'))}km</b> <span class="muted">${esc(String(r.min||''))}${r.min?'分':''}</span>${
+      r.memo?`<div class="muted">${esc(r.memo)}</div>`:''}`),'run','',i));
+
+  (D.sessions||[]).forEach((s,i)=>push(s.date,s.endTs||0,'⏱',
+    wrap('sess',s.id,`<b>トレ終了</b> <span class="muted">${fmtMin(s.totalSec)}・${(s.items||[]).length}種目</span>`),'workout','',i));
+
+  (D.meals||[]).forEach((m,i)=>push(m.date,m.ts||0,'🍽',
+    wrap('meal',m.id,
+     `<b>${esc(m.type||'食事')}</b> <span class="pill ${m.level==='食べ過ぎ'||m.level==='チートデイ'?'hot':''}">${esc(m.level||'')}</span>${
+      m.ts?` <span class="muted" style="font-size:11.5px">${new Date(m.ts).toTimeString().slice(0,5)}</span>`:''}${
       mealHasNut(m)?` <span class="muted">${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g</span>`
                    :` <span class="muted">約${mealKcal(m)}kcal（推定）</span>`}${
       (m.memo||'').trim()
@@ -2736,50 +2823,69 @@ function v7Events(days){
         :(aiFoodGuess(m)
           ?`<div style="margin-top:3px">${esc(aiFoodGuess(m))}<span class="muted" style="font-size:11px"> ← AIの読み取り</span></div>`
           :'<div class="muted" style="margin-top:3px">（内容なし）</div>')}
-      ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真" style="max-height:150px;margin-top:7px">`:''}
-    </div>`,'meal'));
-  (D.measures||[]).forEach(x=>{
-    const t=MFIELDS.filter(f=>x[f[0]]!=null&&x[f[0]]!=='').map(f=>`${f[1]} ${x[f[0]]}${f[2]}`).join('　');
-    push(x.date,0,'📏',`<b>採寸</b> ${esc(t)||''}${x.memo?`<div class="muted">${esc(x.memo)}</div>`:''}`,'measure');});
-  (D.conditions||[]).forEach(c=>push(c.date,0,'💗',
-    `<b>体調</b> ${esc(c.mood||'')} ${c.period?'🩸':''}${c.memo?`<div class="muted">${esc(c.memo)}</div>`:''}`,'measure'));
-  (D.soreness||[]).forEach(s=>push(s.date,0,'🔥',
-    `<b>筋肉痛</b> ${(s.parts||[]).map(esc).join('・')}${s.level?` <span class="pill">${esc(s.level)}</span>`:''}`,'sore'));
-  Object.keys(D.dailyNotes||{}).forEach(d=>{const t=D.dailyNotes[d];
-    if(t&&t.trim())push(d,0,'📝',`<b>ひとこと</b><div>${esc(t)}</div>`,'note');});
+      ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真" style="max-height:150px;margin-top:7px">`:''}`),
+    'meal','',i,m.type));
 
-  /* サプリは日ごとに1件へまとめる */
-  const supByDate={};(D.supLogs||[]).forEach(l=>{if(!l.taken)return;
-    const s=(D.supList||[]).find(x=>x.id===l.supId);(supByDate[l.date]=supByDate[l.date]||[]).push((s&&s.name)||'サプリ');});
-  Object.keys(supByDate).forEach(d=>push(d,0,'💊',`<b>サプリ</b> ${supByDate[d].map(esc).join('・')}`,'sup'));
+  (D.measures||[]).forEach((x,i)=>{
+    const t=MFIELDS.filter(f=>x[f[0]]!=null&&x[f[0]]!=='').map(f=>`${f[1]} ${x[f[0]]}${f[2]}`).join('　');
+    push(x.date,0,'📏',wrap('measure',x.id,`<b>採寸</b> ${esc(t)||''}${
+      x.memo?`<div class="muted">${esc(x.memo)}</div>`:''}`),'measure','',i);});
+
+  (D.conditions||[]).forEach((c,i)=>push(c.date,0,'💗',
+    wrap('cond',c.id,`<b>体調</b> ${esc(c.mood||'')} ${c.period?'🩸':''}${
+      c.memo?`<div class="muted">${esc(c.memo)}</div>`:''}`),'cond','',i));
+
+  (D.soreness||[]).forEach((s,i)=>push(s.date,0,'🔥',
+    wrap('sore',s.id,`<b>筋肉痛</b> ${(s.parts||[]).map(esc).join('・')}${
+      s.level?` <span class="pill">${esc(s.level)}</span>`:''}`),'sore','',i));
+
+  Object.keys(D.dailyNotes||{}).forEach(d=>{const t=D.dailyNotes[d];
+    if(t&&t.trim())push(d,0,'📝',wrap('note',d,`<b>ひとこと</b><div>${esc(t)}</div>`),'note','',0);});
+
+  /* サプリは日ごとに1行へまとめ、行の中の名前をタップで個別に直す */
+  const supByDate={};
+  (D.supLogs||[]).forEach((l,i)=>{if(!l.taken)return;
+    const s=(D.supList||[]).find(x=>x.id===l.supId);
+    (supByDate[l.date]=supByDate[l.date]||[]).push({log:l,name:(s&&s.name)||'サプリ',i:i});});
+  Object.keys(supByDate).forEach(d=>{
+    const a=supByDate[d];
+    push(d,0,'💊',`<b>サプリ</b> ${a.map(x=>
+      `<button class="chip" style="margin:2px 4px 2px 0;padding:4px 10px;font-size:12.5px"
+        onclick="openEdit('sup','${x.log.id}')">${esc(x.name)} ✏️</button>`).join('')}`,'sup','',
+      Math.max.apply(null,a.map(x=>x.i)));});
 
   if(D.rx&&D.rx.date&&D.rx.text)push(D.rx.date,0,'📋',
     `<b>処方箋</b><div class="muted" style="margin-top:3px">${esc(String(D.rx.text).replace(/\s+/g,' ').slice(0,120))}…</div>
-     <button class="btn sm ghost" style="width:100%;margin-top:7px" onclick="openDetail('コーチ','coach','処方箋')">処方箋をひらく</button>`,'coach');
+     <button class="btn sm ghost" style="width:100%;margin-top:7px" onclick="openDetail('コーチ','coach','処方箋')">処方箋をひらく</button>`,'coach','',0);
 
-  Object.keys(D.aiThreads||{}).forEach(k=>{(D.aiThreads[k]||[]).forEach(mm=>{
+  Object.keys(D.aiThreads||{}).forEach(k=>{(D.aiThreads[k]||[]).forEach((mm,i)=>{
     if(!mm||!mm.ts||!mm.content)return;
     const d=new Date(mm.ts).toISOString().slice(0,10);
     push(d,mm.ts,mm.role==='user'?'🙋':'🐉',
-      `<div class="t">${mm.role==='user'?'わたし':'コーチ'}${k!=='総合'?'（'+esc(k)+'）':''}</div>${mdToHtml(String(mm.content).slice(0,600))}`,
-      'coach',mm.role==='user'?'me':'');});});
+      `<div onclick="openEdit('coach','${mm.mid||''}')" style="cursor:pointer">
+        ${mm.mid?fix('coach',mm.mid):''}
+        <div class="t">${mm.role==='user'?'わたし':'コーチ'}${k!=='総合'?'（'+esc(k)+'）':''}
+          <span class="muted">${new Date(mm.ts).toTimeString().slice(0,5)}</span></div>
+        ${mdToHtml(String(mm.content).slice(0,600))}</div>`,
+      'coach',mm.role==='user'?'me':'',i);});});
 
   if(D.plan&&D.plan.review)push(D.plan.date||today(),D.plan.endTs||0,'🐉',
-    `<div class="t">コーチ（トレ総評）</div>${mdToHtml(D.plan.review)}`,'coach');
+    `<div class="t">コーチ（トレ総評）</div>${mdToHtml(D.plan.review)}`,'coach','',0);
 
   return ev;
 }
 function v7Timeline(){
-  const ev=v7Events(_tlDays).filter(e=>!_tlFilter||e.kind===_tlFilter);
-  ev.sort((a,b)=>a.date===b.date?(a.ts-b.ts):(a.date<b.date?-1:1));
+  const ev=v7Events(_tlDays).filter(e=>!_tlFilter||e.kind===_tlFilter
+    ||(_tlFilter==='workout'&&e.kind==='run'));
+  /* 新しいものが上。日付は降順、同じ日の中も新しい順 */
+  ev.sort((a,b)=>a.date===b.date?(evKey(b)-evKey(a)):(a.date<b.date?1:-1));
   const byDate={};ev.forEach(e=>{(byDate[e.date]=byDate[e.date]||[]).push(e);});
-  const dates=Object.keys(byDate).sort();
-  const FN={workout:'トレ',meal:'食事',measure:'からだ',sore:'筋肉痛',sup:'サプリ',coach:'コーチ',note:'メモ'};
+  const dates=Object.keys(byDate).sort().reverse();
+  const FN={workout:'トレ',meal:'食事',measure:'からだ',cond:'体調',sore:'筋肉痛',sup:'サプリ',coach:'コーチ',note:'メモ',run:'ラン'};
   let h=`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:2px">
-    <button class="minibtn" onclick="_tlDays+=30;render()">‹ もっと前</button>
     ${_tlFilter
       ? `<button class="chip on" style="margin:0" onclick="_tlFilter=null;render()">${FN[_tlFilter]||_tlFilter}だけ表示中 ✕</button>`
-      : `<span class="muted" style="font-size:11.5px">直近${_tlDays}日</span>`}</div>`;
+      : `<span class="muted" style="font-size:11.5px">新しい順・直近${_tlDays}日</span>`}</div>`;
   if(!dates.length)return h+`<div class="card" style="margin-top:12px">
     <b>${_tlFilter?'このことの記録はまだありません':'まだ記録がありません'}</b>
     <div class="muted" style="margin-top:6px;line-height:1.8">
@@ -2790,14 +2896,18 @@ function v7Timeline(){
     h+=`<div class="tlday" id="tl-${d}"><b>${d===today()?'今日':fmtD(d)}</b><i></i></div>`;
     byDate[d].forEach(e=>{h+=`<div class="tlrow ${e.cls}"><div class="tlic">${e.icon}</div><div class="tlbody">${e.html}</div></div>`;});
   });
+  /* 新しい順なので「もっと前」は一番下 */
+  h+=`<button class="btn sm gray" style="width:100%;margin-top:14px" onclick="_tlDays+=30;render()">
+    ‹ もっと前（あと30日）</button>`;
   return h;
 }
-
 /* ---------- コーチ発言のタイムスタンプ（v7でタイムラインに流すため） ---------- */
 function stampCoach(){
   let ch=false;
   Object.keys(D.aiThreads||{}).forEach(k=>{(D.aiThreads[k]||[]).forEach(m=>{
-    if(!m||m.ts||m.tsOld)return;
+    if(!m)return;
+    if(!m.mid){m.mid=uid();ch=true;}
+    if(m.ts||m.tsOld)return;
     if(_coachInit)m.ts=Date.now();else m.tsOld=true;ch=true;});});
   if(ch)save();
 }
@@ -2809,7 +2919,7 @@ render=function(){
   const detail=(_sheet==='detail');
   document.body.classList.toggle('detail',detail);
   const _tl=document.getElementById('pgTL');
-  if(_tl&&!detail){_tlPrevTop=_tl.scrollTop;_tlWasBottom=tlAtBottom(_tl);}
+  if(_tl&&!detail){_tlPrevTop=_tl.scrollTop;_tlWasTop=tlAtToday(_tl);}
   const pgL=document.getElementById('pgLook'),pgB=document.getElementById('pgBoard'),pgT=document.getElementById('pgTL');
   if(detail){
     if(pgL)pgL.innerHTML='';if(pgB)pgB.innerHTML='';if(pgT)pgT.innerHTML='';
@@ -2831,8 +2941,8 @@ render=function(){
        一番下（＝今日）にいた場合と初回は、そのまま一番下へ */
     if(pgT){
       if(_tlJump){const el=document.getElementById('tl-'+_tlJump);
-        pgT.scrollTop=el?Math.max(0,el.offsetTop-10):pgT.scrollHeight;_tlJump=null;}
-      else if(_tlBottom||_tlWasBottom)pgT.scrollTop=pgT.scrollHeight;
+        pgT.scrollTop=el?Math.max(0,el.offsetTop-10):0;_tlJump=null;}
+      else if(_tlBottom||_tlWasTop)pgT.scrollTop=0;   /* 今日＝一番上 */
       else pgT.scrollTop=_tlPrevTop;
       _tlBottom=false;
       tlTodayBtn();
@@ -2846,6 +2956,9 @@ render=function(){
   }
   if(_sheet==='rec')renderRec();
   if(_sheet==='search')renderSearch();
+  if(_sheet==='fav')renderFav();
+  if(_sheet==='edit')renderEdit();
+  if(_sheet==='meal')renderMeal();
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
 };
 
@@ -2884,6 +2997,333 @@ render();
 goPage(0,false);
 setTimeout(()=>goPage(0,false),60);
 window.addEventListener('resize',()=>goPage(_page,false));
+
+/* =====================================================================
+   v7.3
+   ① タイムラインを「新しいものが上」に（今日が一番上・夜の記録が昼より上）
+   ② よく食べるもの（履歴からタップ1回で記録）
+   ③ 「✏️ 直す」を全種類に（トレ/ラン/採寸/体調/筋肉痛/サプリ/ひとこと/コーチ）
+   ===================================================================== */
+
+/* ---------- ① 並び順：実質の時刻 ---------- */
+/* 記録に時刻が無いものは、種類から「だいたいこの時間」を当てて並べる。
+   同じ時刻なら、あとから記録したものを上にする（seq が大きいほど新しい） */
+const PSEUDO_HOUR={朝:7,間食:15,昼:12,夜:19};
+function evHour(kind,extra){
+  if(kind==='meal')return PSEUDO_HOUR[extra]!=null?PSEUDO_HOUR[extra]:13;
+  return {sup:8,measure:7,cond:7,sore:9,workout:17,run:18,note:22,coach:20}[kind]||12;
+}
+function evKey(e){
+  /* 同じ日の中での並び。大きいほど新しい */
+  return (e.ts?((new Date(e.ts).getHours())+(new Date(e.ts).getMinutes()/60)):e.hour)*1e6+(e.seq||0);
+}
+
+/* ---------- ② よく食べるもの ---------- */
+function normFood(s){return String(s||'').replace(/\s+/g,'').replace(/[・、,]/g,'・').toLowerCase();}
+function favFoods(limit){
+  const map={};
+  (D.meals||[]).forEach((m,i)=>{
+    const t=(m.memo||'').trim();if(!t)return;
+    const k=normFood(t);
+    if(!map[k])map[k]={label:t,n:0,last:null,lastI:-1};
+    map[k].n++;
+    if(i>map[k].lastI){map[k].lastI=i;map[k].last=m;map[k].label=t;}
+  });
+  return Object.keys(map).map(k=>map[k])
+    .sort((a,b)=>b.n!==a.n?b.n-a.n:b.lastI-a.lastI)
+    .slice(0,limit||20);
+}
+function mealTypeNow(){
+  const h=new Date().getHours();
+  return h<10?'朝':h<15?'昼':h<18?'間食':'夜';
+}
+function openFav(){_sheet='fav';document.getElementById('favSheet').classList.add('on');renderFav();}
+function renderFav(){
+  const list=favFoods(20);
+  const tp=mealTypeNow();
+  document.getElementById('favSheet').innerHTML=
+   `<div class="sheetbar"><b>⭐️ よく食べるもの</b><button class="close" onclick="closeV7Sheet('favSheet')">✕</button></div>
+    <div class="wrap" style="padding-top:14px;padding-bottom:40px">
+      ${list.length?`<div class="muted" style="margin-bottom:10px">タップすると<b>${tp}</b>としてすぐ記録します（あとから直せます）。
+        栄養の数値は前回のものを引き継ぎます。</div>`
+        :`<div class="card"><b>まだありません</b><div class="muted" style="margin-top:6px;line-height:1.8">
+          食事を「食べたもの」つきで記録すると、同じものがここに並んでタップ1回で記録できるようになります。</div></div>`}
+      ${list.map((f,i)=>{
+        const m=f.last||{};const has=mealHasNut(m);
+        return `<div class="card" style="padding:12px 14px">
+          <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
+            <div style="flex:1 1 auto;min-width:0">
+              <b>${esc(f.label)}</b>
+              <div class="muted" style="font-size:12px;margin-top:3px">
+                ${f.n}回記録${has?`・${Math.round(+m.kcal)}kcal / P${Math.round(+m.p||0)}g`:'・栄養の数値なし'}</div>
+            </div>
+            <button class="btn sm" style="flex:0 0 auto;width:auto" onclick="favAdd(${i})">＋ ${tp}に記録</button>
+          </div></div>`;}).join('')}
+    </div>`;
+}
+function favAdd(i){
+  const f=favFoods(20)[i];if(!f)return;
+  const src=f.last||{};
+  const m={id:uid(),date:today(),ts:Date.now(),type:mealTypeNow(),memo:f.label,
+    level:src.level||'普通',photoId:''};
+  if(mealHasNut(src)){m.kcal=+src.kcal;m.p=+src.p||0;m.f=+src.f||0;m.c=+src.c||0;}
+  D.meals.push(m);save();
+  document.getElementById('favSheet').classList.remove('on');_sheet=null;
+  _tlFilter=null;_tlBottom=true;_tlWasTop=true;goPage(1,false);render();
+  openMeal(m.id);
+}
+
+/* ---------- ③ 「直す」を全種類に ---------- */
+const EDIT_TITLE={workout:'🏋️ トレの記録',run:'🏃 ランの記録',measure:'📏 採寸',
+  cond:'💗 体調',sore:'🔥 筋肉痛',sup:'💊 サプリ',note:'📝 ひとこと',
+  coach:'💬 やりとり',sess:'⏱ トレ終了'};
+const EDIT_ARR={workout:'workouts',run:'runs',measure:'measures',cond:'conditions',
+  sore:'soreness',sup:'supLogs',sess:'sessions'};
+
+function editFind(kind,id){
+  if(kind==='note')return (D.dailyNotes&&D.dailyNotes[id]!=null)?{date:id,text:D.dailyNotes[id]}:null;
+  if(kind==='coach'){
+    let hit=null;
+    Object.keys(D.aiThreads||{}).forEach(k=>{(D.aiThreads[k]||[]).forEach((m,i)=>{
+      if(m&&m.mid===id)hit={thread:k,i:i,m:m};});});
+    return hit;
+  }
+  const a=D[EDIT_ARR[kind]]||[];
+  return a.find(x=>x&&x.id===id)||null;
+}
+function openEdit(kind,id){
+  if(kind==='meal')return openMeal(id);
+  if(!editFind(kind,id))return;
+  _sheet='edit';window._editKind=kind;window._editId=id;
+  document.getElementById('editSheet').classList.add('on');
+  renderEdit();
+}
+function closeEdit(){
+  _sheet=null;window._editKind=null;window._editId=null;
+  document.getElementById('editSheet').classList.remove('on');
+  render();
+}
+function editSet(field,v){
+  const o=editFind(window._editKind,window._editId);if(!o)return;
+  if(window._editKind==='note'){D.dailyNotes[window._editId]=v;save();return;}
+  if(window._editKind==='coach'){o.m.content=v;save();return;}
+  o[field]=v;save();
+}
+function editSetNum(field,v){
+  const o=editFind(window._editKind,window._editId);if(!o)return;
+  o[field]=(v===''||v==null)?'':(+v);save();
+}
+function editSetRe(field,v){editSet(field,v);renderEdit();}
+function editSetDate(v){
+  const k=window._editKind;
+  if(k==='note'){
+    const old=window._editId;if(!v||v===old)return;
+    const txt=D.dailyNotes[old];delete D.dailyNotes[old];D.dailyNotes[v]=txt;
+    window._editId=v;save();renderEdit();return;
+  }
+  editSetRe('date',v);
+}
+function editLabel(){
+  const k=window._editKind,id=window._editId,o=editFind(k,id);
+  if(!o)return 'この記録';
+  if(k==='note')return `${fmtD(o.date)}のひとこと`;
+  if(k==='coach')return (o.m.role==='user'?'わたし':'コーチ')+'の発言';
+  const d=o.date?fmtD(o.date)+'の':'';
+  return d+({workout:o.name||'トレ',run:'ラン',measure:'採寸',cond:'体調',
+    sore:'筋肉痛',sup:'サプリ',sess:'トレ終了の記録'}[k]||'記録');
+}
+function editDelete(){
+  const k=window._editKind,id=window._editId;
+  if(!confirm(editLabel()+'を消します。戻せません。よろしいですか？'))return;
+  if(k==='note'){delete D.dailyNotes[id];}
+  else if(k==='coach'){const h=editFind('coach',id);if(h)D.aiThreads[h.thread].splice(h.i,1);}
+  else {D[EDIT_ARR[k]]=(D[EDIT_ARR[k]]||[]).filter(x=>x&&x.id!==id);}
+  save();closeEdit();
+}
+/* --- セットの編集（トレ） --- */
+function editSetRow(j,field,v){
+  const w=editFind('workout',window._editId);if(!w||!w.sets||!w.sets[j])return;
+  w.sets[j][field]=(v===''||v==null)?null:(+v);save();
+}
+function editSetStep(j,field,d){
+  const w=editFind('workout',window._editId);if(!w||!w.sets||!w.sets[j])return;
+  const cur=+w.sets[j][field]||0;
+  w.sets[j][field]=Math.max(0,Math.round((cur+d)*10)/10);save();renderEdit();
+}
+function editSetAdd(){
+  const w=editFind('workout',window._editId);if(!w)return;
+  w.sets=w.sets||[];const last=w.sets[w.sets.length-1]||{weight:null,reps:null};
+  w.sets.push({weight:last.weight,reps:last.reps});save();renderEdit();
+}
+function editSetDel(j){
+  const w=editFind('workout',window._editId);if(!w||!w.sets)return;
+  w.sets.splice(j,1);save();renderEdit();
+}
+/* --- 筋肉痛の部位 --- */
+function editSoreToggle(p){
+  const o=editFind('sore',window._editId);if(!o)return;
+  o.parts=o.parts||[];
+  const i=o.parts.indexOf(p);
+  if(i>=0)o.parts.splice(i,1);else o.parts.push(p);
+  save();renderEdit();
+}
+
+function editRow(label,inner){return `<div style="margin-top:9px"><label style="margin:0 0 3px">${label}</label>${inner}</div>`;}
+
+function renderEdit(){
+  const kind=window._editKind,id=window._editId;
+  const sh=document.getElementById('editSheet');if(!sh)return;
+  const o=editFind(kind,id);
+  if(!o){sh.classList.remove('on');_sheet=null;render();return;}
+  let body='';
+
+  if(kind==='workout'){
+    const sets=o.sets||[];
+    body=`<div class="card">
+      <h3 style="margin-top:0">種目</h3>
+      <input value="${esc(o.name||'')}" list="exListEdit" onchange="editSet('name',this.value)">
+      <datalist id="exListEdit">${[...new Set(D.workouts.map(w=>w.name))].map(n=>`<option>${esc(n)}</option>`).join('')}</datalist>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      ${editRow('メモ',`<textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('memo',this.value)"
+        placeholder="フォーム・効いた部位など" style="min-height:44px">${esc(o.memo||'')}</textarea>`)}
+    </div>
+    <div class="card">
+      <div class="row" style="justify-content:space-between;align-items:center">
+        <h3 style="margin:0">セット</h3><span class="muted" style="font-size:12px">総ボリューム ${wVol(o)}kg</span></div>
+      <div class="setwrap">
+      ${sets.length?sets.map((s,j)=>s.dur!=null&&s.dur!==''&&s.weight==null
+        ?`<div class="setrow"><div class="setln"><span class="setno">${j+1}</span>
+            <input value="${esc(String(s.dur))}" onchange="editSetRow(${j},'dur',this.value)" style="text-align:center">
+            <button class="del" style="font-size:15px" onclick="editSetDel(${j})">✕</button></div></div>`
+        :`<div class="setrow"><div class="setln">
+            <span class="setno">${j+1}</span>
+            <button class="stepb" onclick="editSetStep(${j},'weight',-5)">−5</button>
+            <button class="stepb" onclick="editSetStep(${j},'weight',-1)">−1</button>
+            <input class="numin" type="number" inputmode="decimal" value="${s.weight!=null?s.weight:''}"
+              onchange="editSetRow(${j},'weight',this.value)">
+            <span class="unit">kg</span>
+            <button class="stepb" onclick="editSetStep(${j},'weight',1)">+1</button>
+            <button class="stepb" onclick="editSetStep(${j},'weight',5)">+5</button>
+          </div>
+          <div class="setln" style="margin-top:5px">
+            <span class="setno"></span>
+            <button class="stepb" onclick="editSetStep(${j},'reps',-1)">−1</button>
+            <input class="numin" type="number" inputmode="numeric" value="${s.reps!=null?s.reps:''}"
+              onchange="editSetRow(${j},'reps',this.value)">
+            <span class="unit">回</span>
+            <button class="stepb" onclick="editSetStep(${j},'reps',1)">+1</button>
+            <button class="del" style="margin-left:auto;font-size:15px" onclick="editSetDel(${j})">✕</button>
+          </div></div>`).join('')
+        :'<div class="muted">セットなし</div>'}
+      </div>
+      <button class="btn sm gray" style="width:100%;margin-top:9px" onclick="editSetAdd()">＋ セットを足す</button>
+    </div>`;
+  }
+
+  else if(kind==='run'){
+    body=`<div class="card"><h3 style="margin-top:0">ラン</h3>
+      <div class="flex2">
+        <div><label>距離（km）</label><input type="number" inputmode="decimal" value="${esc(String(o.km||''))}"
+          onchange="editSet('km',this.value)"></div>
+        <div><label>時間（分）</label><input type="number" inputmode="numeric" value="${esc(String(o.min||''))}"
+          onchange="editSet('min',this.value)"></div></div>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      ${editRow('メモ',`<textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('memo',this.value)"
+        style="min-height:44px">${esc(o.memo||'')}</textarea>`)}
+    </div>`;
+  }
+
+  else if(kind==='measure'){
+    body=`<div class="card"><h3 style="margin-top:0">採寸</h3>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      <div class="row" style="gap:7px;margin-top:6px">
+      ${MFIELDS.map(([k,l,u])=>`<div style="flex:1 1 30%">
+        <label style="margin:2px 0;font-size:11.5px">${l}（${u}）</label>
+        <input type="number" inputmode="decimal" style="text-align:center;font-weight:700"
+          value="${o[k]!=null&&o[k]!==''?o[k]:''}" onchange="editSetNum('${k}',this.value)"></div>`).join('')}
+      </div>
+      ${editRow('メモ',`<textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('memo',this.value)"
+        style="min-height:44px">${esc(o.memo||'')}</textarea>`)}
+      <div class="muted" style="font-size:11.5px;margin-top:7px">空にした項目は記録から外れます。</div>
+    </div>`;
+  }
+
+  else if(kind==='cond'){
+    const MOODS=['よい','ふつう','だるい','しんどい'];
+    body=`<div class="card"><h3 style="margin-top:0">体調</h3>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px">
+        <input type="checkbox" ${o.period?'checked':''} onchange="editSetRe('period',this.checked)"> 生理（🩸）</label>
+      ${editRow('調子',`<div class="row">${MOODS.map(x=>
+        `<button class="chip ${x===o.mood?'on':''}" onclick="editSetRe('mood','${x}')">${x}</button>`).join('')}
+        ${o.mood?`<button class="chip" onclick="editSetRe('mood','')">クリア</button>`:''}</div>`)}
+      ${editRow('メモ',`<textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('memo',this.value)"
+        style="min-height:44px">${esc(o.memo||'')}</textarea>`)}
+    </div>`;
+  }
+
+  else if(kind==='sore'){
+    body=`<div class="card"><h3 style="margin-top:0">筋肉痛</h3>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      ${editRow('部位（タップで切り替え）',`<div class="row">${SOREPARTS.map(p=>
+        `<button class="chip ${(o.parts||[]).includes(p)?'on':''}" onclick="editSoreToggle('${p}')">${p}</button>`).join('')}</div>`)}
+      ${editRow('強さ',`<div class="row">${['軽い','普通','強い'].map(l=>
+        `<button class="chip ${l===o.level?'on':''}" onclick="editSetRe('level','${l}')">${l}</button>`).join('')}</div>`)}
+    </div>`;
+  }
+
+  else if(kind==='sup'){
+    const s=(D.supList||[]).find(x=>x.id===o.supId);
+    body=`<div class="card"><h3 style="margin-top:0">${esc((s&&s.name)||'サプリ')}</h3>
+      ${editRow('日付',`<input type="date" value="${esc(o.date||today())}" onchange="editSetDate(this.value)">`)}
+      <div class="flex2" style="margin-top:6px">
+        <div><label>時刻</label><input value="${esc(o.time||'')}" placeholder="08:10" onchange="editSet('time',this.value)"></div>
+        <div><label>量（${esc(supUnit(s||{}))}）</label>
+          <input type="number" inputmode="decimal" value="${o.count!=null?o.count:''}" onchange="editSetNum('count',this.value)"></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:11px">
+        <input type="checkbox" ${o.taken?'checked':''} onchange="editSetRe('taken',this.checked)"> 飲んだ</label>
+    </div>`;
+  }
+
+  else if(kind==='note'){
+    body=`<div class="card"><h3 style="margin-top:0">ひとこと</h3>
+      ${editRow('日付',`<input type="date" value="${esc(o.date)}" onchange="editSetDate(this.value)">`)}
+      ${editRow('内容',`<textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('text',this.value)"
+        style="min-height:90px">${esc(o.text||'')}</textarea>`)}
+    </div>`;
+  }
+
+  else if(kind==='coach'){
+    body=`<div class="card"><h3 style="margin-top:0">${o.m.role==='user'?'わたしの発言':'コーチの発言'}</h3>
+      <div class="muted" style="font-size:11.5px;margin-bottom:6px">
+        ${o.thread!=='総合'?'スレッド：'+esc(o.thread)+'　':''}文章を直すとタイムラインの表示も変わります。</div>
+      <textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('content',this.value)"
+        style="min-height:140px">${esc(o.m.content||'')}</textarea>
+      ${o.m.role==='assistant'?`<div class="muted" style="font-size:11.5px;margin-top:7px">
+        ※ コーチの発言を直しても、AIの記憶（自動要約）はそのままです。記憶は⚙設定から消せます。</div>`:''}
+    </div>`;
+  }
+
+  else if(kind==='sess'){
+    body=`<div class="card"><h3 style="margin-top:0">トレ終了の記録</h3>
+      <div class="muted" style="line-height:1.8">${fmtD(o.date)}・${fmtMin(o.totalSec)}・${(o.items||[]).length}種目<br>
+        ${(o.items||[]).map(x=>esc(x.name)+'（'+fmtMin(x.sec)+'）').join('・')||'—'}</div>
+      <div class="muted" style="font-size:11.5px;margin-top:8px">
+        この記録は所要時間のまとめです。種目ごとの重さ・回数は、上の各トレのカードから直せます。</div>
+    </div>`;
+  }
+
+  sh.innerHTML=`<div class="sheetbar"><b>${EDIT_TITLE[kind]||'記録'}を直す</b>
+      <button class="close" onclick="closeEdit()">✕</button></div>
+    <div class="wrap" style="padding-top:14px;padding-bottom:40px">
+      ${body}
+      <button class="btn" onclick="closeEdit()">✓ 完了</button>
+      <div style="text-align:center;margin-top:14px">
+        <button class="del" style="font-size:12.5px" onclick="editDelete()">この記録を削除する</button></div>
+    </div>`;
+  setTimeout(()=>sh.querySelectorAll('.exmemo').forEach(autoGrow),20);
+}
 </script>
 </body>
 </html>
