@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.6</title>
+<title>カラダ管理 v7.7</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -283,6 +283,19 @@
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sessTimers.hot{animation:restpulse 1s infinite alternate ease-in-out}
   @keyframes restpulse{from{opacity:.62}to{opacity:1}}
+  /* --- 休憩おわりを見逃さない --- */
+  body.v7 #sessbar.urgent{background:rgba(223,111,14,.14);border-top-color:var(--accent2)}
+  body.restdone #sessbar{background:var(--accent);border-top:3px solid var(--accentD);
+    animation:restflash .55s 6 alternate ease-in-out}
+  body.restdone #sessbar .sessTimers{font-size:17px;font-weight:800}
+  body.restdone #sessbar .sessTimers b{color:#16181c !important}
+  @keyframes restflash{from{background:var(--accent)}to{background:#eaffb0}}
+  /* --- 今日のひとこと --- */
+  .fbbody{font-size:13.5px;line-height:1.8}
+  .fbbody .mdh{font-size:13.5px;margin:10px 0 4px}
+  .fbbody .mdh:first-child{margin-top:0}
+  .fbbody .mdul{margin-bottom:6px}
+  .fbbody .mdul li{margin:4px 0}
 </style>
 </head>
 <body>
@@ -1431,7 +1444,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.6（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.7（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2237,6 +2250,7 @@ function tlGoToday(){
 }
 
 const V7TILES={
+  fb:{label:'コーチの今日のひとこと'},
   tre:{label:'今日のトレ'},
   meals:{label:'今日の食事'},
   sore:{label:'筋肉痛マップ'},
@@ -2248,6 +2262,7 @@ const V7TILES={
   freq:{label:'今週のトレ頻度'}
 };
 const V7_BOARD_DEFAULT=[
+  {key:'fb',size:'L',hidden:false},
   {key:'tre',size:'L',hidden:false},
   {key:'meals',size:'L',hidden:false},
   {key:'nut',size:'M',hidden:false},
@@ -2258,7 +2273,7 @@ const V7_BOARD_DEFAULT=[
   {key:'rx',size:'M',hidden:true},
   {key:'freq',size:'M',hidden:true}
 ];
-const BOARD_VER=3;
+const BOARD_VER=4;
 /* 注意：D.board は必ず「その場で」直す。新しい配列を作ると、
    呼び出し側が掴んでいる配列と別物になって並べ替えが効かなくなる */
 function ensureBoard(){
@@ -2272,6 +2287,8 @@ function ensureBoard(){
       const j=D.board.findIndex(x=>x.key==='tre');D.board.splice(j>=0?j+1:0,0,t);};
     if(!D.boardVer||D.boardVer<2)put('nut','M');
     if(!D.boardVer||D.boardVer<3)put('meals','L');
+    if(!D.boardVer||D.boardVer<4){const i=D.board.findIndex(t=>t.key==='fb');
+      if(i>=0){const t=D.board[i];t.hidden=false;t.size='L';D.board.splice(i,1);D.board.unshift(t);}}
     D.boardVer=BOARD_VER;
   }
   return D.board;
@@ -2585,7 +2602,7 @@ function tileSize(key){const i=tileIdx(key);const t=ensureBoard()[i];if(!t)retur
 function tileHide(key){const i=tileIdx(key);const t=ensureBoard()[i];if(!t)return;t.hidden=!t.hidden;save();render();}
 function tileEditDone(){_edit=false;render();}
 
-const TILE_JUMP={tre:'workout',meals:'meal',sore:'sore',coach:'coach',sup:'sup',nut:'meal',measure:'measure',rx:'coach',freq:'workout'};
+const TILE_JUMP={fb:'coach',tre:'workout',meals:'meal',sore:'sore',coach:'coach',sup:'sup',nut:'meal',measure:'measure',rx:'coach',freq:'workout'};
 function tileTap(key){
   if(_edit)return;
   if(key==='tre'&&!(D.plan&&D.plan.startTs&&!D.plan.endTs)&&!(D.plan&&D.plan.items||[]).length){openDetail('トレ','tre','筋トレ');return;}
@@ -2622,7 +2639,7 @@ function v7Board(){
 }
 function v7Tile(t){
   const meta=V7TILES[t.key]||{label:t.key};
-  const body=({tre:tlTre,meals:tlMealList,sore:tlSore,coach:tlCoach,sup:tlSup,nut:tlNut,measure:tlMeasure,rx:tlRx,freq:tlFreq}[t.key]||(()=>''))();
+  const body=({fb:tlFeedback,tre:tlTre,meals:tlMealList,sore:tlSore,coach:tlCoach,sup:tlSup,nut:tlNut,measure:tlMeasure,rx:tlRx,freq:tlFreq}[t.key]||(()=>''))();
   return `<div class="tile ${t.size==='L'?'L':''} ${_edit?'edit':''} ${t.hidden?'off':''}"
       onpointerdown="tileDown()" onpointerup="tileUp()" onpointercancel="tileUp()" onpointerleave="tileUp()"
       ${_edit?'':`onclick="tileTap('${t.key}')"`}>
@@ -2894,7 +2911,11 @@ function v7Events(days){
         ${mm.mid?fix('coach',mm.mid):''}
         <div class="t">${mm.role==='user'?'わたし':'コーチ'}${k!=='総合'?'（'+esc(k)+'）':''}
           <span class="muted">${new Date(mm.ts).toTimeString().slice(0,5)}</span></div>
-        ${mdToHtml(String(mm.content).slice(0,600))}</div>`,
+        ${mdToHtml(String(mm.content).slice(0,600))}
+        ${(mm.role==='assistant'&&mm.mid&&looksUnformatted(mm.content))
+          ? `<button class="btn sm gray" style="width:100%;margin-top:8px"
+               onclick="event.stopPropagation();tidyCoach('${mm.mid}')">${
+               mm.tidying?'整えています…':'✨ 読みやすく整える'}</button>`:''}</div>`,
       'coach',mm.role==='user'?'me':'',i);});});
 
   if(D.plan&&D.plan.review)push(D.plan.date||today(),D.plan.endTs||0,navIcon('coach'),
@@ -3327,6 +3348,13 @@ function renderEdit(){
         ${o.thread!=='総合'?'スレッド：'+esc(o.thread)+'　':''}文章を直すとタイムラインの表示も変わります。</div>
       <textarea class="exmemo" oninput="autoGrow(this)" onchange="editSet('content',this.value)"
         style="min-height:140px">${esc(o.m.content||'')}</textarea>
+      ${o.m.role==='assistant'?`
+        <button class="btn ${o.m.tidying?'gray':'ghost'}" style="margin-top:9px" ${o.m.tidying?'disabled':''}
+          onclick="tidyCoach('${id}')">${o.m.tidying?'整えています…':'✨ 読みやすく整える'}</button>
+        ${o.m.contentRaw?`<button class="btn sm gray" style="width:100%;margin-top:7px"
+          onclick="undoTidy('${id}')">整える前に戻す</button>`:''}
+        <div class="muted" style="font-size:11.5px;margin-top:6px">
+          意味は変えずに、見出し・箇条書き・太字だけを付け直します。</div>`:''}
       ${o.m.role==='assistant'?`<div class="muted" style="font-size:11.5px;margin-top:7px">
         ※ コーチの発言を直しても、AIの記憶（自動要約）はそのままです。記憶は⚙設定から消せます。</div>`:''}
     </div>`;
@@ -3580,6 +3608,223 @@ function renderTimer(){
     </div>`;
   setTimeout(barTick,10);
 }
+
+/* =====================================================================
+   v7.7
+   ① 休憩おわりを見逃さない（バーが光る・大きく出る）
+   ② 古いコーチの発言を「読みやすく整える」
+   ③ 目標をふまえた「今日のフィードバック」を盤面に出す
+   ===================================================================== */
+
+/* ---------- ① 休憩おわりを目立たせる ---------- */
+var _restFlashT=null;
+function restFlashOn(){
+  document.body.classList.add('restdone');
+  clearTimeout(_restFlashT);
+  _restFlashT=setTimeout(restFlashOff,10000);
+}
+function restFlashOff(){
+  clearTimeout(_restFlashT);
+  document.body.classList.remove('restdone');
+  window._restDone=false;
+  barTick();
+}
+/* 休憩の残りが少ないときはバーの色を変える */
+function restUrgent(){return window._restLeft>0&&window._restLeft<=5;}
+
+/* barTick を包んで、見た目の強調も一緒に面倒を見る */
+const legacyBarTick=barTick;
+barTick=function(){
+  legacyBarTick();
+  const sb=document.getElementById('sessbar');
+  if(sb)sb.classList.toggle('urgent',restUrgent());
+  if(window._restDone)restFlashOn();
+};
+/* 画面のどこかを触ったら光るのを止める */
+document.addEventListener('pointerdown',function(){
+  if(document.body.classList.contains('restdone'))restFlashOff();
+},{passive:true});
+
+/* ---------- ② 古いコーチの発言を整える ---------- */
+function looksUnformatted(txt){
+  const s=String(txt||'');
+  if(s.length<160)return false;
+  if(/^\s*#{1,4}\s/m.test(s))return false;
+  if(/^\s*[-*]\s+/m.test(s))return false;
+  if(/^\s*\d+[.)]\s+/m.test(s))return false;
+  return true;
+}
+async function tidyCoach(mid){
+  const h=editFind('coach',mid);if(!h)return;
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
+  const orig=h.m.content||'';
+  if(!orig.trim())return;
+  h.m.tidying=true;save();rerenderAll();
+  const sys='あなたは編集者です。渡された文章の意味・情報・数値を一切変えずに、'
+    +'スマホで読みやすい形に整えるだけが仕事です。内容の追加・削除・要約はしないこと。';
+  const req=[
+    '次の文章を、意味を変えずに読みやすく整えてください。',
+    '',
+    '【ルール】',
+    '- 話題ごとに「## 見出し」で区切る',
+    '- 並んでいるもの（種目・注意点・手順）は「- 」の箇条書きにする',
+    '- 重量・回数・kcal・g などの数字と、結論のことばは **太字**',
+    '- 1段落は最大2行',
+    '- 文章の中身は足さない・削らない。言い回しは変えてよいが、情報は必ず全部残す',
+    '- 整えた本文だけを出力する（前置き・説明・「整えました」等は書かない）',
+    '',
+    '【元の文章】',
+    orig
+  ].join('\n');
+  try{
+    const r=await aiCallRetry([{role:'user',content:req}],
+      {model:aiModelData(),max_tokens:1400,system:sys});
+    const out=String(r||'').trim();
+    if(out){h.m.contentRaw=h.m.contentRaw||orig;h.m.content=out;h.m.tidied=true;}
+  }catch(e){
+    alert('整えられませんでした：'+e.message);
+  }
+  delete h.m.tidying;save();rerenderAll();
+}
+function undoTidy(mid){
+  const h=editFind('coach',mid);if(!h||!h.m.contentRaw)return;
+  h.m.content=h.m.contentRaw;delete h.m.contentRaw;delete h.m.tidied;
+  save();rerenderAll();
+}
+/* いま開いているものを全部描き直す */
+function rerenderAll(){
+  render();
+  if(_sheet==='edit')renderEdit();
+}
+
+/* ---------- ③ 今日のフィードバック ---------- */
+/* 今日の記録を1つの文字列にする。中身が変わったかどうかの判定にも使う */
+function fbToday(){
+  const t=today();
+  const ws=(D.workouts||[]).filter(w=>w.date===t);
+  const rs=(D.runs||[]).filter(r=>r.date===t);
+  const ms=(D.meals||[]).filter(m=>m.date===t).slice().sort((a,b)=>(a.ts||0)-(b.ts||0));
+  const so=(D.soreness||[]).filter(s=>s.date===t);
+  const cd=(D.conditions||[]).find(c=>c.date===t);
+  const mz=[...(D.measures||[])].reverse().find(x=>x.date<=t);
+  const plan=D.plan&&D.plan.date===t?D.plan:null;
+  const L=[];
+  L.push('【目標の体型】'+((D.profile&&D.profile.goal)||'（未設定）'));
+  if(mz){const parts=MFIELDS.filter(f=>mz[f[0]]!=null&&mz[f[0]]!=='').map(f=>f[1]+' '+mz[f[0]]+f[2]);
+    if(parts.length)L.push('【直近の採寸('+fmtD(mz.date)+')】'+parts.join(' / '));}
+  if(ws.length){
+    L.push('【今日のトレ】'+ws.map(w=>w.name+' '+(w.sets||[]).map(s=>
+      s.dur?s.dur:((s.weight!=null?s.weight+'kg':'')+(s.reps!=null?'×'+s.reps+'回':''))).join(' ')
+      +(w.memo?'（'+w.memo+'）':'')).join(' ／ '));
+    L.push('総ボリューム '+ws.reduce((a,w)=>a+wVol(w),0)+'kg');
+  }else if(plan&&(plan.items||[]).length){
+    L.push('【今日の予定のトレ（まだ終わっていない）】'+plan.items.map(x=>x.name).join('・'));
+  }else L.push('【今日のトレ】まだ記録なし');
+  if(rs.length)L.push('【ラン】'+rs.map(r=>(r.km||'?')+'km '+(r.min||'?')+'分').join(' / '));
+  if(ms.length){
+    L.push('【今日の食事】'+ms.map(m=>(mealTime(m)||'')+' '
+      +((m.memo||'').trim()||aiFoodGuess(m)||'内容なし')
+      +' '+mealKcal(m)+'kcal'+(mealHasNut(m)?'(P'+Math.round(+m.p||0)+')':'(推定)')).join(' ／ '));
+    if(nutReady()){
+      const inn=dayIntake(t),g=targetPFC(t);
+      if(g)L.push('合計 '+Math.round(inn.k)+'kcal / 目標 '+g.k+'kcal、P '+Math.round(inn.p)+'g / 目標 '+g.p+'g');
+    }
+  }else L.push('【今日の食事】まだ記録なし');
+  if(so.length)L.push('【筋肉痛】'+so.map(s=>(s.parts||[]).join('・')+(s.level?'('+s.level+')':'')).join(' / '));
+  if(cd)L.push('【体調】'+(cd.mood||'')+(cd.period?' 生理あり':'')+(cd.memo?'（'+cd.memo+'）':''));
+  return L.join('\n');
+}
+function fbSignature(){
+  const s=fbToday();
+  /* 短い指紋。中身が変わったかだけ分かればよい */
+  let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}
+  return s.length+':'+h;
+}
+function fbHasEnough(){
+  const t=today();
+  return (D.workouts||[]).some(w=>w.date===t)
+    ||(D.runs||[]).some(r=>r.date===t)
+    ||(D.meals||[]).some(m=>m.date===t);
+}
+function fbStale(){
+  const f=D.feedback;
+  if(!f||f.date!==today())return true;
+  return f.sig!==fbSignature();
+}
+async function makeFeedback(force){
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
+  if(window._fbBusy)return;
+  if(!force&&!fbHasEnough())return;
+  window._fbBusy=true;render();
+  const sys='あなたは'+((D.profile&&D.profile.name)||'ユーザー')+'さん専属のフィットネスコーチです。'
+    +'相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な話を好みます。'
+    +'\n【絶対に守ること】'
+    +'\n・責めない、煽らない、罪悪感を持たせない。食べ過ぎた日も否定的に評価しない'
+    +'\n・体型や体重を否定的に評価しない'
+    +'\n・極端な制限（絶食・単品ダイエット・基礎代謝を下回る設定・急速な減量）は絶対に勧めない'
+    +'\n・記録が少ない日は「記録が少ない」ことを責めず、できたことを拾う'
+    +'\n・断定しすぎない。すべて推定値であることを踏まえる';
+  const req=[
+    '今日の記録を見て、目標に対する短いフィードバックをください。',
+    '',
+    fbToday(),
+    '',
+    '【出し方】スマホで3秒で読める長さ。次の形を厳密に守ること。',
+    '## よかったこと',
+    '- （1〜2個。具体的に。数字があれば **太字**）',
+    '## 今日あと1つやるなら',
+    '- （1個だけ。今日中にできる、ハードルの低いこと）',
+    '',
+    '※合計で6行以内。前置き・おさらい・一般論は書かない。',
+    '※トレも食事もまだ記録がないときは、責めずに「今日これから何をするといいか」を1つだけ。'
+  ].join('\n');
+  let txt='',err='';
+  try{
+    txt=String(await aiCallRetry([{role:'user',content:req}],
+      {model:aiModelData(),max_tokens:600,system:sys})||'').trim();
+  }catch(e){err=e.message;}
+  window._fbBusy=false;
+  if(txt){
+    D.feedback={date:today(),text:txt,ts:Date.now(),sig:fbSignature()};
+    save();
+  }else if(err){
+    D.feedback={date:today(),text:'',ts:Date.now(),sig:'',err:err};save();
+  }
+  render();
+}
+/* 1日1回だけ自動で作る（連打・課金の暴走を防ぐ） */
+function fbAutoMaybe(){
+  if(!aiKey())return;
+  if(D.profile&&D.profile.autoFb===false)return;
+  if(window._fbBusy)return;
+  if(!fbHasEnough())return;
+  const f=D.feedback;
+  if(f&&f.date===today())return;      /* 今日ぶんは自動では1回まで。あとは手動更新 */
+  makeFeedback(false);
+}
+function toggleAutoFb(){
+  D.profile=D.profile||{};
+  D.profile.autoFb=(D.profile.autoFb===false);
+  save();render();
+}
+
+function tlFeedback(){
+  const f=D.feedback;
+  if(!aiKey())return `<div class="muted">⚙設定でAPIキーを入れると、目標に対する今日のひとことが出ます</div>
+    <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="event.stopPropagation();openSettings()">設定をひらく</button>`;
+  if(window._fbBusy)return `<div class="muted">今日の記録を見ています…</div>`;
+  if(!f||f.date!==today()||(!f.text&&!f.err)){
+    if(!fbHasEnough())return `<div class="muted">今日の記録が入るとコーチが見てくれます</div>`;
+    return `<button class="btn" onclick="event.stopPropagation();makeFeedback(true)">今日を見てもらう</button>`;
+  }
+  if(f.err)return `<div class="muted">うまく取れませんでした（${esc(f.err).slice(0,40)}）</div>
+    <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="event.stopPropagation();makeFeedback(true)">もう一度</button>`;
+  return `<div class="fbbody">${mdToHtml(f.text)}</div>
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:9px">
+      <span class="muted" style="font-size:11px">${hhmm(f.ts)} 時点${fbStale()?'・記録が増えています':''}</span>
+      <button class="minibtn" style="padding:6px 11px;font-size:12px"
+        onclick="event.stopPropagation();makeFeedback(true)">${fbStale()?'更新':'見直す'}</button></div>`;
+}
 /* =====================================================================
    ★ 起動はここ（すべての定義が終わったあと）
    ここより上で render() を呼ぶと、まだ初期化されていない宣言に触れて
@@ -3589,6 +3834,8 @@ render();
 goPage(0,false);
 setTimeout(()=>goPage(0,false),60);
 window.addEventListener('resize',()=>goPage(_page,false));
+/* 今日ぶんのフィードバックが無ければ1回だけ作る（自動は1日1回まで） */
+setTimeout(function(){try{fbAutoMaybe();}catch(e){}},900);
 </script>
 </body>
 </html>
