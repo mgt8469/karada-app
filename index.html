@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.7</title>
+<title>カラダ管理 v7.8</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -155,6 +155,17 @@
   .cueno{flex:0 0 auto;width:21px;height:21px;border-radius:6px;background:var(--accent);color:#16181c;
     font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:2px}
   .cueno.warn{background:var(--warn);color:#fff}
+  /* --- 解剖：実データ3Dモデル画像 --- */
+  .a3box{position:relative;background:#fff;border-radius:10px;overflow:hidden;min-height:220px;
+    display:flex;align-items:center;justify-content:center}
+  .a3box img{width:100%;display:block}
+  .a3msg{padding:44px 18px;text-align:center;color:var(--sub);font-size:12.5px;line-height:1.8}
+  .a3seg{display:flex;gap:5px;margin:8px 4px 0}
+  .a3seg button{flex:1 1 0;border:1px solid var(--line);background:var(--card);color:var(--sub);
+    border-radius:9px;padding:8px 4px;font-size:12px;font-weight:800;font-family:inherit}
+  .a3seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .a3cred{font-size:10.5px;color:var(--sub);line-height:1.7;margin-top:9px}
+  .a3cred a{color:var(--sub)}
   /* --- 長押しドラッグ並べ替え --- */
   .draghead{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
   .excard.dragging{position:relative;z-index:5;opacity:.95;box-shadow:0 10px 26px rgba(20,30,50,.28);
@@ -366,7 +377,8 @@ const DEFAULT={
   supList:[], supLogs:[], measures:[], conditions:[], schedule:[],
   plan:null, soreness:[], sessions:[],
   photoTags:['腹筋セパうっすら','腹筋セパくっきり','くびれ','肩の丸み','下腹の張り','太もも引き締まり','背中のライン'],
-  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}, coachLog:[], anatCache:{}, rx:null
+  aiChats:[], photoNotes:[], wishlist:[], coachMemo:'', exerciseNotes:{}, aiThreads:{'総合':[]}, dailyNotes:{}, coachLog:[], anatCache:{}, rx:null,
+  foodDb:{}   /* v7.8：栄養成分表示から読み取った市販品（商品名→1単位あたりの数値） */
 };
 let D=load();
 function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return JSON.parse(JSON.stringify(DEFAULT));
@@ -382,6 +394,11 @@ function load(){try{const r=JSON.parse(localStorage.getItem(KEY));if(!r)return J
   if(!d.dailyNotes||typeof d.dailyNotes!=='object')d.dailyNotes={};
   if(!Array.isArray(d.coachLog))d.coachLog=[];
   if(!d.anatCache||typeof d.anatCache!=='object')d.anatCache={};
+  if(!d.foodDb||typeof d.foodDb!=='object')d.foodDb={};
+  /* v7.8：配列のはずのものが壊れていても白画面にしない（保存事故の保険） */
+  ['templates','workouts','runs','meals','supList','supLogs','measures','conditions',
+   'schedule','soreness','sessions','photoTags','photoNotes','wishlist']
+    .forEach(k=>{if(!Array.isArray(d[k]))d[k]=Array.isArray(DEFAULT[k])?DEFAULT[k].slice():[];});
   if(!d.profile.targets||typeof d.profile.targets!=='object')d.profile.targets={};
   if(d.rx&&typeof d.rx!=='object')d.rx=null;
   return d;}catch(e){return JSON.parse(JSON.stringify(DEFAULT));}}
@@ -1444,7 +1461,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.7（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.8（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1707,20 +1724,49 @@ const LEVEL_RATIO={'軽め':0.15,'普通':0.25,'しっかり':0.35,'食べ過ぎ
 function mealHasNut(m){return m.kcal!=null&&m.kcal!=='';}
 function mealKcal(m){if(mealHasNut(m))return +m.kcal;
   return Math.round((targetKcal(m.date)||1800)*(LEVEL_RATIO[m.level]||0.25));}
-function dayIntake(date){const ms=D.meals.filter(x=>x.date===date);let k=0,p=0,f=0,c=0,est=0;
-  ms.forEach(m=>{k+=mealKcal(m);p+=+m.p||0;f+=+m.f||0;c+=+m.c||0;if(!mealHasNut(m))est++;});
-  return {k:Math.round(k),p:Math.round(p),f:Math.round(f),c:Math.round(c),n:ms.length,est:est};}
+/* =====================================================================
+   v7.8 ② タンパク質が静かに 0 になっていた問題
+   ---------------------------------------------------------------------
+   これまで、数値を入れていない食事は kcal だけ「目標×量の感覚の係数」で
+   推定され、P/F/C は 0 のまま合計されていた。つまり記録した食事の数値を
+   入れ忘れた日は、タンパク質バーも、夜のタンパク質カードも、処方箋の
+   「タンパク質が目標の8割以上」判定も、ぜんぶ実際より低く出ていた。
+   → カロリーと同じ考え方で PFC も推定し、「実測ぶん」と「推定ぶん」を
+     分けて返すようにする。画面では濃い色＝実測、斜線＝推定で区別する。
+   ===================================================================== */
+function mealPFC(m){
+  if(mealHasNut(m))return {p:+m.p||0,f:+m.f||0,c:+m.c||0,est:false};
+  /* 中身が分からないので、その日の目標PFCの比率で割り振るだけ。あくまで目安。 */
+  const g=targetPFC(m.date),k=mealKcal(m);
+  if(!g||!g.k)return {p:0,f:0,c:0,est:true};
+  const r=k/g.k;
+  return {p:Math.round(g.p*r),f:Math.round(g.f*r),c:Math.round(g.c*r),est:true};}
+function dayIntake(date){const ms=D.meals.filter(x=>x.date===date);
+  let k=0,p=0,f=0,c=0,kM=0,pM=0,fM=0,cM=0,est=0;
+  ms.forEach(m=>{const kk=mealKcal(m),n=mealPFC(m);
+    k+=kk;p+=n.p;f+=n.f;c+=n.c;
+    if(n.est)est++;else{kM+=kk;pM+=n.p;fM+=n.f;cM+=n.c;}});
+  const R=Math.round;
+  return {k:R(k),p:R(p),f:R(f),c:R(c),
+    kM:R(kM),pM:R(pM),fM:R(fM),cM:R(cM),n:ms.length,est:est};}
 function setMealNut(id,fld,v){const m=D.meals.find(x=>x.id===id);if(!m)return;
   m[fld]=(v===''?'':(+v||0));save();render();}
 function nutReady(){return bmr()!=null;}
-function bar(label,now,goal,unit,col){
+/* meas を渡すと「実測ぶん＝ベタ塗り」「推定ぶん＝斜線」で区別して描く */
+function bar(label,now,goal,unit,col,meas){
   const pct=goal>0?Math.min(160,Math.round(now/goal*100)):0;
   const over=goal>0&&now>goal*1.05;
+  const c=over?'var(--warn)':col;
+  const hasEst=(meas!=null&&meas<now);
+  const mPct=(goal>0&&meas!=null)?Math.min(100,Math.round(meas/goal*100)):Math.min(100,pct);
   return `<div style="margin-top:9px">
     <div class="row" style="justify-content:space-between;font-size:12px">
-      <b>${label}</b><span class="muted"><b style="color:${over?'var(--warn)':'var(--ink)'};font-size:13px">${now}</b> / ${goal}${unit}</span></div>
-    <div style="height:9px;background:var(--chip);border-radius:5px;overflow:hidden;margin-top:3px">
-      <div style="height:100%;width:${Math.min(100,pct)}%;background:${over?'var(--warn)':col};border-radius:5px"></div></div></div>`;}
+      <b>${label}</b><span class="muted"><b style="color:${over?'var(--warn)':'var(--ink)'};font-size:13px">${now}</b> / ${goal}${unit}${hasEst?` <span style="font-size:10px">（実測 ${meas}${unit}）</span>`:''}</span></div>
+    <div style="height:9px;background:var(--chip);border-radius:5px;overflow:hidden;margin-top:3px;position:relative">
+      <div style="position:absolute;left:0;top:0;height:100%;width:${Math.min(100,pct)}%;opacity:.5;
+        background:repeating-linear-gradient(45deg,${c} 0 3px,rgba(0,0,0,0) 3px 6px)"></div>
+      <div style="position:absolute;left:0;top:0;height:100%;width:${mPct}%;background:${c};border-radius:5px"></div>
+    </div></div>`;}
 function nutSetupCard(){return `<div class="card">
   <h3 style="margin-top:0">⚙️ まず基礎情報を入れてね</h3>
   <div class="muted">消費カロリーと目標値を出すには、身長・年齢・性別（と体重）が必要です。⚙設定 →「⚖️ 体・エネルギー設定」から。InBodyの除脂肪体重があれば、そちらを優先して精度が上がります。</div>
@@ -1733,10 +1779,14 @@ function vNutToday(){
     <div class="row" style="justify-content:space-between;align-items:center">
       <h3 style="margin:0">📊 今日の栄養</h3>
       <span class="muted" style="font-size:11px">${inn.n}食記録${inn.est?`・うち${inn.est}件は推定`:''}</span></div>
-    ${bar('カロリー',inn.k,g.k,'kcal','var(--accentD)')}
-    ${bar('タンパク質 P',inn.p,g.p,'g','#4da3ff')}
-    ${bar('脂質 F',inn.f,g.f,'g','var(--accent2)')}
-    ${bar('炭水化物 C',inn.c,g.c,'g','#a78bfa')}
+    ${bar('カロリー',inn.k,g.k,'kcal','var(--accentD)',inn.kM)}
+    ${bar('タンパク質 P',inn.p,g.p,'g','#4da3ff',inn.pM)}
+    ${bar('脂質 F',inn.f,g.f,'g','var(--accent2)',inn.fM)}
+    ${bar('炭水化物 C',inn.c,g.c,'g','#a78bfa',inn.cM)}
+    ${inn.est?`<div class="muted" style="font-size:11px;margin-top:7px;line-height:1.7">
+      ベタ塗り＝数値が入っている食事（実測）、斜線＝${inn.est}件ぶんの推定です。
+      推定は「その日の目標を、量の感覚の割合で割っただけ」で中身は見ていません。
+      パッケージの栄養成分表示があれば📋ボタンで読み取ると、そのぶんが実測に変わります。</div>`:''}
     <div class="kpi" style="margin-top:12px">
       <div><b>${out}</b><span>推定消費</span></div>
       <div><b>${inn.k}</b><span>摂取</span></div>
@@ -1771,13 +1821,13 @@ function rxAdherence(){
   const from=new Date(D.rx.date+'T00:00'),to=new Date(today()+'T00:00');
   const days=Math.min(56,Math.round((to-from)/864e5));
   if(days<3)return {days:days,tooEarly:true};
-  let logged=0,kOk=0,pOk=0,tre=0,kSum=0;
+  let logged=0,kOk=0,pOk=0,tre=0,kSum=0,estDays=0;
   for(let i=1;i<=days;i++){const d=new Date(from);d.setDate(d.getDate()+i);const ds=d.toISOString().slice(0,10);
     if(D.workouts.some(w=>w.date===ds)||(D.sessions||[]).some(s=>s.date===ds))tre++;
     if(!D.meals.some(m=>m.date===ds))continue;
-    logged++;const inn=dayIntake(ds),g=targetPFC(ds);kSum+=inn.k;
+    logged++;const inn=dayIntake(ds),g=targetPFC(ds);kSum+=inn.k;if(inn.est)estDays++;
     if(g){if(Math.abs(inn.k-g.k)<=g.k*0.15)kOk++;if(inn.p>=g.p*0.8)pOk++;}}
-  return {days:days,logged:logged,kOk:kOk,pOk:pOk,tre:tre,
+  return {days:days,logged:logged,kOk:kOk,pOk:pOk,tre:tre,estDays:estDays,
     perWeek:Math.round(tre/days*7*10)/10,
     avgK:logged?Math.round(kSum/logged):0,
     logRate:Math.round(logged/days*100),
@@ -1799,7 +1849,7 @@ function vAdherence(){
     <div class="row"><h3 style="margin:0">📈 実行できてる率</h3><span class="muted" style="font-size:11px">処方から${a.days}日</span></div>
     ${adhBar('食事を記録した日',a.logRate,`${a.days}日中 ${a.logged}日`)}
     ${adhBar('カロリーが目標±15%',a.kRate,`記録した日の平均 ${a.avgK}kcal`)}
-    ${adhBar('タンパク質が目標の8割以上',a.pRate,'')}
+    ${adhBar('タンパク質が目標の8割以上',a.pRate,a.estDays?`${a.logged}日中 ${a.estDays}日は推定を含む数字`:'')}
     ${adhBar('トレの頻度',Math.min(100,Math.round(a.perWeek/3*100)),`週 ${a.perWeek}回ペース（${a.days}日で${a.tre}回）`)}
     ${worst<60?`<div class="note-warn" style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:11px;font-size:12.5px;line-height:1.7">
       <b>守れてない＝あなたが悪いんじゃなくて、処方が生活に合ってない</b>可能性が高いです。当直・外食・疲労を織り込んだ現実的な処方に、コーチが組み直します。
@@ -1849,6 +1899,9 @@ function vProteinFocus(){
       <div style="height:100%;width:${Math.min(100,pct)}%;background:${done?'var(--accentD)':'var(--accent2)'};border-radius:5px"></div></div>
     ${done?'<div class="muted" style="margin-top:7px">今日はOK。あとは寝るだけ。</div>'
       :`<div class="muted" style="margin-top:7px;line-height:1.7">あと${left}gの目安：${proteinIdea(left)}</div>`}
+    ${i.est?`<div class="muted" style="margin-top:6px;font-size:11px;line-height:1.7">
+      うち<b>${i.p-i.pM}g は推定</b>です（数値の入っていない食事が${i.est}件）。
+      確かなのは ${i.pM}g ぶん。</div>`:''}
   </div>`;}
 function proteinIdea(g){
   const ideas=[[25,'プロテイン1杯（約20〜25g）'],[20,'ギリシャヨーグルト1個＋卵1個（約20g）'],[15,'卵2個（約12g）や、ちくわ2本＋チーズ'],[8,'卵1個か、チーズ1個（約7〜8g）']];
@@ -1997,6 +2050,168 @@ const ANAT_BASE=[
  '<path d="M80,356 L94,356 L96,368 L74,368 Z"/>','<path d="M120,356 L106,356 L104,368 L126,368 Z"/>'
 ];
 function anatBaseG(dx){return `<g transform="translate(${dx},0)" fill="var(--card2)" stroke="var(--line)" stroke-width="1.2">${ANAT_BASE.join('')}</g>`;}
+/* =====================================================================
+   v7.8 ① 解剖ページを「実データの3Dモデル」で描く
+   ---------------------------------------------------------------------
+   BodyParts3D / Anatomography（ライフサイエンス統合データベースセンター）の
+   3Dモデルを Web API に描いてもらう。実在の人のMRIから起こしたモデルなので、
+   画像生成AIのように「それっぽいけど嘘」ということが起きない。
+
+   ハマりどころ（実際に踏んだので残す）：
+   ・Version は必ず '3.0'。'4.0' だと広背筋(FMA13357系)のモデルが無く、
+     エラーではなく "真っ白な画像" が返ってくる。だから blank 判定も入れてある。
+   ・UseForBoundingBoxFlag を「見せたい筋だけ true」にすると、カメラが
+     その筋に自動で寄る。皮膚を true にすると全身が入る。
+   ・CORS は開いているので crossOrigin='anonymous' で canvas に描ける
+     ＝ dataURL にして IndexedDB に保存できる（2回目から通信なし）。
+   ・CC BY-SA 2.1 JP：出典表記が必須。画面下に常時出すこと。
+   ===================================================================== */
+const ANAT_API='https://lifesciencedb.jp/bp3d/API/image?';
+const ANAT_VER={Version:'3.0',TreeName:'isa'};
+const ANAT_SKIN='FMA7163';
+/* MUS のキー → FMA ID。20筋すべて実際に描画して目視確認済み */
+const FMA3D={
+ trapU:['FMA32557'],                                    /* 僧帽筋 上部＝下行部 */
+ trapM:['FMA32556'],                                    /* 僧帽筋 中部＝横行部 */
+ rhomboid:['FMA13381','FMA13382','FMA13383','FMA13384'],/* 大菱形筋・小菱形筋 左右 */
+ lat:['FMA13358','FMA13359'],
+ erector:['FMA77177','FMA77178','FMA77179'],            /* 腸肋筋・最長筋・棘筋 */
+ deltA:['FMA34677'], deltM:['FMA34678'], deltP:['FMA34679'],
+ pec:['FMA34687','FMA34696','FMA34699'],                /* 鎖骨部・胸肋部・腹部 */
+ biceps:['FMA37682','FMA37683'],
+ triceps:['FMA37692','FMA37693','FMA37694'],
+ forearm:['FMA38460','FMA38461','FMA38463','FMA38464','FMA38615','FMA38616','FMA38636','FMA38637'],
+ rectus:['FMA13377','FMA13378'],
+ oblique:['FMA13336','FMA13337','FMA13892','FMA13893'], /* 外腹斜筋・内腹斜筋 */
+ gluteMax:['FMA22328','FMA22329'], gluteMed:['FMA22330','FMA22331'],
+ quad:['FMA38928','FMA38929','FMA38930','FMA38931','FMA38932','FMA38933','FMA38934','FMA38935'],
+ adductor:['FMA22456','FMA22457','FMA22452','FMA22454','FMA22459','FMA22460'],
+ ham:['FMA45887','FMA45890','FMA22358','FMA22359','FMA22448','FMA22449'],
+ calf:['FMA45956','FMA45959','FMA22558','FMA22559']
+};
+/* その筋を見るのに素直な向き（初期表示をこれで決める） */
+const ANAT_NATVIEW={trapU:'back',trapM:'back',rhomboid:'back',lat:'back',erector:'back',
+ deltA:'front',deltM:'front',deltP:'back',pec:'front',biceps:'front',triceps:'back',
+ forearm:'front',rectus:'front',oblique:'front',gluteMax:'back',gluteMed:'back',
+ quad:'front',adductor:'front',ham:'back',calf:'back'};
+
+function anat3dURL(prim,sec,view,w,h){
+  const parts=[];
+  const add=(ks,col)=>(ks||[]).forEach(k=>(FMA3D[k]||[]).forEach(id=>
+    parts.push({PartID:id,PartColor:col,PartOpacity:1,UseForBoundingBoxFlag:true})));
+  add(prim,'E24A33'); add(sec,'F0A030');
+  if(!parts.length)return '';
+  parts.push({PartID:ANAT_SKIN,PartColor:'FFFFFF',PartOpacity:.1,UseForBoundingBoxFlag:false});
+  const cam={CameraMode:(view==='oblique'?'back':view),Zoom:0};
+  if(view==='oblique')cam.AddLongitudeDegree=40;
+  return ANAT_API+encodeURIComponent(JSON.stringify({Common:ANAT_VER,Part:parts,Camera:cam,
+    Window:{ImageWidth:w||620,ImageHeight:h||780,BackgroundColor:'FFFFFF'}}));
+}
+function anat3dId(prim,sec,view){return 'anat3d:'+view+':'+(prim||[]).join('+')+'|'+(sec||[]).join('+');}
+function anat3dHas(prim,sec){return (prim||[]).concat(sec||[]).some(k=>FMA3D[k]);}
+function anat3dNatView(prim,sec){
+  const k=((prim||[]).concat(sec||[])).find(x=>ANAT_NATVIEW[x]);
+  return ANAT_NATVIEW[k]||'front';}
+
+/* 真っ白な画像（＝そのパーツが無い）をつかまえる。中身のある画素の割合を見る */
+function anat3dBlank(canvas){
+  try{
+    const g=canvas.getContext('2d');
+    const d=g.getImageData(0,0,canvas.width,canvas.height).data;
+    let ink=0,n=0;
+    for(let i=0;i<d.length;i+=4*97){n++;if(d[i]<235||d[i+1]<235||d[i+2]<235)ink++;}
+    return n>0&&(ink/n)<0.005;
+  }catch(e){return false;}
+}
+/* 画像を取ってくる。一度取れたら IndexedDB に置いて、次からは通信しない */
+async function anat3dGet(prim,sec,view){
+  const id=anat3dId(prim,sec,view);
+  try{const all=await imgAll();const hit=all.find(o=>o.id===id);
+      if(hit&&hit.dataUrl)return hit.dataUrl;}catch(e){}
+  const url=anat3dURL(prim,sec,view);
+  if(!url)throw new Error('この種目に対応する筋のモデルがありません');
+  const dataUrl=await new Promise((res,rej)=>{
+    const im=new Image();im.crossOrigin='anonymous';
+    const to=setTimeout(()=>{im.src='';rej(new Error('時間内に届きませんでした'));},25000);
+    im.onload=()=>{clearTimeout(to);
+      try{
+        const c=document.createElement('canvas');
+        c.width=im.naturalWidth||620;c.height=im.naturalHeight||780;
+        const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);
+        g.drawImage(im,0,0);
+        if(anat3dBlank(c)){rej(new Error('モデルが見つかりませんでした'));return;}
+        res(c.toDataURL('image/jpeg',.85));
+      }catch(e){rej(e);}};
+    im.onerror=()=>{clearTimeout(to);rej(new Error('通信できませんでした'));};
+    im.src=url;});
+  try{await imgPut({id:id,kind:'anat',dataUrl:dataUrl,date:today()});}catch(e){}
+  return dataUrl;
+}
+/* 画面状態。種目を開くたびに、その筋にとって自然な向きで始める */
+let _a3={view:'back',sec:true,mode:'3d'};
+function a3set(k,v){_a3[k]=(v==='true'?true:(v==='false'?false:v));anat3dPaint();}
+function anat3dPaint(){
+  const box=document.getElementById('a3box');if(!box)return;
+  const prim=window._a3prim||[],sec=window._a3sec||[];
+  document.querySelectorAll('.a3seg button[data-k]').forEach(b=>{
+    const v=b.dataset.v;const cur=_a3[b.dataset.k];
+    b.classList.toggle('on',String(cur)===v);});
+  /* 凡例の色は、いま出ている図に合わせる（3Dは赤/橙、模式図はアプリの緑/薄橙） */
+  const sw1=document.getElementById('a3sw1'),sw2=document.getElementById('a3sw2'),sw3=document.getElementById('a3sw3w');
+  const svgMode=(_a3.mode==='svg');
+  if(sw1){sw1.style.background=svgMode?'var(--accent)':'#e24a33';
+          sw1.style.borderColor=svgMode?'var(--accentD)':'#b83a26';}
+  if(sw2){sw2.style.background=svgMode?'#ffd39a':'#f0a030';}
+  if(sw3)sw3.style.display=svgMode?'':'none';
+  /* 模式図のときは、3Dだけの操作（視点）と出典表記を出さない */
+  const vw=document.getElementById('a3views'),cr=document.getElementById('a3cred');
+  if(vw)vw.style.display=svgMode?'none':'';
+  if(cr)cr.style.display=svgMode?'none':'';
+  const svgWrap=document.getElementById('a3svg');
+  if(svgMode){box.style.display='none';if(svgWrap)svgWrap.style.display='';return;}
+  box.style.display='';if(svgWrap)svgWrap.style.display='none';
+  const showSec=_a3.sec?sec:[];
+  const token=(window._a3token=(window._a3token||0)+1);
+  box.innerHTML='<div class="a3msg">解剖モデルを読み込み中…<br><span style="font-size:11px">初回だけ数秒かかります（次からは一瞬）</span></div>';
+  anat3dGet(prim,showSec,_a3.view).then(u=>{
+    if(token!==window._a3token)return;
+    box.innerHTML='<img src="'+u+'" alt="解剖モデル">';
+  }).catch(e=>{
+    if(token!==window._a3token)return;
+    box.innerHTML='<div class="a3msg">⚠️ 解剖モデルを表示できませんでした<br>'
+      +'<span style="font-size:11px">'+esc(e.message)+'</span><br>'
+      +'<button class="minibtn" style="margin-top:10px" onclick="anat3dPaint()">↻ もう一度</button>'
+      +' <button class="minibtn" style="margin-top:10px" onclick="a3set(\'mode\',\'svg\')">模式図で見る</button></div>';
+  });
+}
+function anat3dCard(prim,sec){
+  window._a3prim=prim;window._a3sec=sec;
+  if(!anat3dHas(prim,sec))_a3.mode='svg';
+  return `<div class="card" style="padding:10px 8px 4px">
+    <div id="a3box" class="a3box"></div>
+    <div id="a3svg" style="display:none">${anatSvg(prim,sec)}</div>
+    <div class="a3seg" id="a3views">
+      <button data-k="view" data-v="back" onclick="a3set('view','back')">背面</button>
+      <button data-k="view" data-v="oblique" onclick="a3set('view','oblique')">斜め</button>
+      <button data-k="view" data-v="front" onclick="a3set('view','front')">正面</button>
+    </div>
+    <div class="a3seg">
+      <button data-k="sec" data-v="true" onclick="a3set('sec','true')">主働＋協働</button>
+      <button data-k="sec" data-v="false" onclick="a3set('sec','false')">主働のみ</button>
+      <button data-k="mode" data-v="svg" onclick="a3set('mode','svg')">模式図</button>
+      <button data-k="mode" data-v="3d" onclick="a3set('mode','3d')">3Dモデル</button>
+    </div>
+    <div class="row" style="gap:12px;justify-content:center;padding:8px 0 4px;font-size:11px">
+      <span><span class="swatch" id="a3sw1" style="background:#e24a33;border-color:#b83a26"></span>主働筋</span>
+      <span><span class="swatch" id="a3sw2" style="background:#f0a030;border-color:var(--accent2)"></span>協働筋</span>
+      <span id="a3sw3w" style="display:none"><span class="swatch" style="background:#dde4ec;border-color:#c9d3dd"></span>その他</span>
+    </div>
+    <div class="a3cred" id="a3cred">3Dモデル画像：BodyParts3D/Anatomography &copy; ライフサイエンス統合データベースセンター
+      licensed by <a href="https://creativecommons.org/licenses/by-sa/2.1/jp/" target="_blank" rel="noopener">CC 表示-継承 2.1 日本</a>。
+      実在の人のMRIから作られたモデルで、姿勢は解剖学的正位に固定されています（種目の動作姿勢そのものではありません）。</div>
+  </div>`;
+}
+
 function anatSvg(prim,sec){
   const num={};prim.forEach((k,i)=>num[k]=i+1);sec.forEach((k,i)=>{if(!num[k])num[k]=prim.length+i+1;});
   let faint='',hot='',marks='';
@@ -2139,8 +2354,12 @@ function musSpec(k,no,isP){const m=MUS[k];if(!m)return '';
   </div>`;}
 function openAnat(name){
   window._anatName=name;
+  /* 種目ごとに、その筋を見るのに素直な向きから始める（背中の種目なら背面） */
+  const hit=findEx(name),cached=(D.anatCache||{})[name];
+  const pv=(cached&&cached.p)||(hit?hit.data.p:[]),sv=(cached&&cached.s)||(hit?hit.data.s:[]);
+  _a3.view=anat3dNatView(pv,sv);_a3.mode='3d';
   const s=document.getElementById('anatSheet');s.classList.add('on');s.innerHTML=anatView(name);
-  window.scrollTo(0,0);s.scrollTop=0;}
+  window.scrollTo(0,0);s.scrollTop=0;anat3dPaint();}
 function closeAnat(){const s=document.getElementById('anatSheet');s.classList.remove('on');s.innerHTML='';}
 function anatView(name){
   const hit=findEx(name);
@@ -2165,14 +2384,7 @@ function anatView(name){
       <h1 class="anattitle">${esc(hit?hit.key:name)}</h1>
       <div class="anaten">${esc(en)}</div>
     </div>
-    <div class="card" style="padding:10px 8px 4px">
-      ${anatSvg(prim,sec)}
-      <div class="row" style="gap:12px;justify-content:center;padding:2px 0 8px;font-size:11px">
-        <span><span class="swatch" style="background:var(--accent);border-color:var(--accentD)"></span>主働筋</span>
-        <span><span class="swatch" style="background:#ffd39a;border-color:var(--accent2)"></span>協働筋</span>
-        <span><span class="swatch" style="background:#dde4ec;border-color:#c9d3dd"></span>その他</span>
-      </div>
-    </div>
+    ${anat3dCard(prim,sec)}
     ${prim.map(k=>musSpec(k,num[k],true)).join('')}
     ${sec.map(k=>musSpec(k,num[k],false)).join('')}
     ${d?`<div class="anatsec"><div class="anatsech">意識するポイント<span>CUES</span></div>
@@ -2185,7 +2397,7 @@ function anatView(name){
     ${exNote(hit?hit.key:name)?`<div class="anatsec"><div class="anatsech">あなたのメモ<span>MY NOTE</span></div>
       <div style="font-size:13px;line-height:1.75">${mdToHtml(exNote(hit?hit.key:name))}</div></div>`:''}
     <button class="btn" style="margin-top:14px" onclick="closeAnat();askForm('${nmQ}')">この種目をコーチに深掘りする</button>
-    <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">図はこのアプリのために描き起こしたオリジナルの模式図です（形状は簡略化）。起始・停止・作用・支配神経は解剖学の標準的記載に基づくテキストが正で、図はイメージ補助として見てください。</div>
+    <div class="muted" style="font-size:11px;margin-top:10px;line-height:1.7">「3Dモデル」は実在の人のMRIから作られた実データ（出典は図の下）、「模式図」はこのアプリのために描き起こしたオリジナル（形状は簡略化）。どちらも起始・停止・作用・支配神経は下のテキストが正で、図はイメージ補助として見てください。画像生成AIは使っていません（筋の走行を平気で間違えるため）。</div>
   </div>`;}
 async function genAnat(name,force){
   if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');return;}
@@ -2208,7 +2420,8 @@ SUB: <協働筋のキーをカンマ区切り（0〜4個）>
     const p=pick(/^\s*MUSCLES\s*[:：]\s*(.+)$/mi), sb=pick(/^\s*SUB\s*[:：]\s*(.+)$/mi);
     const text=ans.replace(/^\s*MUSCLES\s*[:：].*$/mi,'').replace(/^\s*SUB\s*[:：].*$/mi,'').trim();
     D.anatCache[name]={p:p.length?p:['rectus'],s:sb,en:'AI GENERATED',cat:'AI作成ページ',text:text};
-    save();s.innerHTML=anatView(name);s.scrollTop=0;}
+    save();_a3.view=anat3dNatView(p,sb);_a3.mode='3d';
+    s.innerHTML=anatView(name);s.scrollTop=0;anat3dPaint();}
   catch(e){s.innerHTML=`<div class="anatbar"><b style="font-size:15px">🫀 解剖ページ</b><button class="close" onclick="closeAnat()">✕</button></div>
     <div class="wrap"><div class="card" style="margin-top:14px">⚠️ 作成に失敗しました<div class="muted" style="margin-top:4px">${esc(e.message)}</div>
     <button class="btn" style="margin-top:10px" onclick="genAnat('${esc(name).replace(/'/g,'')}',1)">もう一度</button></div></div>`;}}
@@ -2400,7 +2613,7 @@ function openMeal(id){
   renderMeal();
 }
 function closeMeal(){
-  _sheet=null;window._mealEdit=null;
+  _sheet=null;window._mealEdit=null;window._labelRead=null;
   document.getElementById('mealSheet').classList.remove('on');
   render();
 }
@@ -2473,8 +2686,18 @@ function renderMeal(){
        </div>
        <div class="muted" style="font-size:11.5px;margin-top:7px">
          数字を直せばそのままグラフに反映されます。${has?'空にすると「ボリューム感からの推定」に戻ります。':''}</div>
-       <button class="btn ${busy?'gray':''}" style="margin-top:11px" ${busy?'disabled':''} onclick="recalcMeal('${m.id}')">
-         ${busy?'計算中…':'この内容で計算し直す'}</button>
+       ${labelCard(m.id)}
+       ${(window._labelRead&&window._labelRead.mealId===m.id)?'':`
+         <button class="btn" style="margin-top:11px" onclick="pickLabelPhoto('${m.id}')">📋 栄養成分表示を撮って数値を入れる</button>
+         <div class="muted" style="font-size:11px;margin-top:5px;line-height:1.7">
+           パッケージに<b>印刷された数字をそのまま読む</b>だけなので、料理の写真から当てるのと違って正確です。
+           コンビニ・プロテイン・冷凍食品はこれが一番早い。</div>
+         ${foodDbCard()}`}
+       <button class="btn gray" style="margin-top:11px" ${busy?'disabled':''} onclick="recalcMeal('${m.id}')">
+         ${busy?'計算中…':'AIに文章から見積もらせる'}</button>
+       <div class="muted" style="font-size:11px;margin-top:5px;line-height:1.7">
+         上の「食べたもの」からAIが推定します。<b>誤差は±30〜50%くらい</b>あります（同じ定食でも油の量で数百kcal違う）。
+         パッケージがあるものは、上の📋のほうが正確です。</div>
        ${has?`<button class="btn sm gray" style="width:100%;margin-top:7px" onclick="mealClearNut('${m.id}')">数値をクリア（推定に戻す）</button>`:''}
        <div class="muted" style="font-size:11px;margin-top:7px">⚠️ すべて推定値です。数字に振り回されず、体調と採寸の変化を優先してね。</div>
      </div>
@@ -2581,6 +2804,147 @@ async function recalcMeal(id){
     save();renderMeal();
   }
 }
+
+/* =====================================================================
+   v7.8 ③④ 栄養成分表示を撮って「数字だけ」読む ＋ 読んだ市販品を辞書に貯める
+   ---------------------------------------------------------------------
+   料理の写真からカロリーを当てるのは誤差±30〜50%が普通で、そこは正直どうにも
+   ならない。でもコンビニ食品・プロテイン・冷凍食品には、パッケージに
+   「印刷された正確な数字」がある。それを読むのは推測ではなく文字起こしなので、
+   精度がまるで違う。
+   ・AIには「書いてあるものだけ読む。書いていない値は空で返す。推測禁止」と指示
+   ・単位（100gあたり／1食あたり）を必ず取って、個数を掛けてから入れる
+   ・一度読んだものは D.foodDb に貯めて、次からはタップ1回で正確な数値が入る
+   ===================================================================== */
+function normProd(s){return String(s||'').replace(/\s+/g,'').replace(/[（）()]/g,'').toLowerCase();}
+function foodDbList(){
+  const db=D.foodDb||{};
+  return Object.keys(db).map(k=>db[k]).filter(x=>x&&x.name)
+    .sort((a,b)=>(b.n||0)-(a.n||0)||(b.ts||0)-(a.ts||0));}
+function foodDbSave(o){
+  D.foodDb=D.foodDb||{};
+  const k=normProd(o.name);if(!k)return;
+  const prev=D.foodDb[k];
+  D.foodDb[k]=Object.assign({},o,{n:((prev&&prev.n)||0)+1,ts:Date.now()});
+  save();}
+function foodDbDel(name){
+  if(!D.foodDb)return;delete D.foodDb[normProd(name)];save();renderMeal();}
+
+function pickLabelPhoto(mealId){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.onchange=()=>{const f=inp.files&&inp.files[0];if(f)readLabel(mealId,f);};
+  inp.click();}
+
+async function readLabel(mealId,file){
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
+  window._labelRead={mealId:mealId,busy:true};renderMeal();
+  try{
+    const dataUrl=await fileToDataUrl(file,1400);
+    const mt=(dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
+    const lines=[
+      'この画像には食品の「栄養成分表示」が写っています。',
+      '書いてある数字を、そのまま writing しなおすだけの作業です。',
+      '',
+      '守ること：',
+      '・表に書いてある値だけを読むこと。書いていない値は空のままにすること。',
+      '・絶対に推測・補完をしないこと（例：脂質が書いていないなら脂質は空）。',
+      '・「〜あたり」の単位を必ずそのまま拾うこと（100gあたり／1食(200ml)あたり／1袋あたり など）。',
+      '・炭水化物が「糖質＋食物繊維」に分かれている場合は、炭水化物の合計を使うこと。',
+      '・熱量(kcal)、たんぱく質(g)、脂質(g)、炭水化物(g) の4つが対象。',
+      '',
+      '出力は次の3行だけ。説明はいらない：',
+      'LABEL: 商品名（写っていれば。無ければ空）',
+      'UNIT: 100gあたり',
+      'DATA: kcal=200, p=20, f=5, c=15',
+      '※読み取れなかった項目は DATA から省くこと（0 と書かない）。'
+    ];
+    const content=[{type:'text',text:lines.join('\n')},
+      {type:'image',source:{type:'base64',media_type:mt,
+        data:dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}}];
+    const r=await aiCallRetry([{role:'user',content:content}],
+      {model:aiModelData(),max_tokens:400,
+       system:'あなたは印刷された表を読み取る係です。推測は一切せず、書いてあるものだけを返します。簡潔に。'});
+    const g=(k)=>{const dm=r.match(/^\s*DATA\s*[:：]\s*(.+)$/mi);if(!dm)return null;
+      const mm=dm[1].match(new RegExp('(?:^|[,、\\s])'+k+'\\s*[=:：]\\s*(\\d+(?:\\.\\d+)?)','i'));
+      return mm?Math.round(+mm[1]):null;};
+    const nm=(r.match(/^\s*LABEL\s*[:：]\s*(.+)$/mi)||[])[1]||'';
+    const un=(r.match(/^\s*UNIT\s*[:：]\s*(.+)$/mi)||[])[1]||'';
+    const kc=g('kcal');
+    if(kc==null){window._labelRead={mealId:mealId,err:'カロリー(kcal)を読み取れませんでした。表の部分が大きく写るように撮り直してみてね。',raw:r.slice(0,300)};renderMeal();return;}
+    window._labelRead={mealId:mealId,name:(nm||'').trim(),unit:(un||'').trim()||'1食あたり',
+      kcal:kc,p:g('p'),f:g('f'),c:g('c'),qty:1};
+    renderMeal();
+  }catch(e){
+    window._labelRead={mealId:mealId,err:e.message};renderMeal();}
+}
+function labelQty(d){
+  const L=window._labelRead;if(!L)return;
+  L.qty=Math.max(0.25,Math.round((( +L.qty||1)+d)*4)/4);renderMeal();}
+function labelQtySet(v){
+  const L=window._labelRead;if(!L)return;
+  L.qty=Math.max(0.25,+v||1);}
+function applyLabel(){
+  const L=window._labelRead;if(!L||L.kcal==null)return;
+  const m=(D.meals||[]).find(x=>x.id===L.mealId);if(!m)return;
+  const q=+L.qty||1;
+  const mul=(v)=>v==null?null:Math.round(v*q);
+  m.kcal=mul(L.kcal);
+  if(L.p!=null)m.p=mul(L.p); if(L.f!=null)m.f=mul(L.f); if(L.c!=null)m.c=mul(L.c);
+  const label=(L.name||'').trim();
+  if(label){
+    const add=label+(q!==1?` ×${q}`:'');
+    m.memo=((m.memo||'').trim()?m.memo.trim()+'・':'')+add;
+    foodDbSave({name:label,unit:L.unit,kcal:L.kcal,p:L.p,f:L.f,c:L.c});
+  }
+  window._labelRead=null;save();renderMeal();}
+function applyFoodDb(name){
+  const o=(D.foodDb||{})[normProd(name)];if(!o)return;
+  const id=window._mealEdit;
+  window._labelRead={mealId:id,name:o.name,unit:o.unit,kcal:o.kcal,p:o.p,f:o.f,c:o.c,qty:1,fromDb:true};
+  renderMeal();}
+/* 読み取り結果の確認カード。ここで個数を掛けてから入れる */
+function labelCard(mealId){
+  const L=window._labelRead;
+  if(!L||L.mealId!==mealId)return '';
+  if(L.busy)return `<div class="banner" style="margin-top:9px">📋 栄養成分表示を読み取り中…</div>`;
+  if(L.err)return `<div class="banner" style="margin-top:9px">⚠️ ${esc(L.err)}
+    <button class="btn sm gray" style="width:100%;margin-top:7px" onclick="window._labelRead=null;renderMeal()">閉じる</button></div>`;
+  const q=+L.qty||1;
+  const per=(v,u)=>v==null?'—':(v+(u||''));
+  return `<div class="banner" style="margin-top:9px">
+    <b>${L.fromDb?'⭐️ 登録済み':'📋 読み取り結果'}${L.name?'：'+esc(L.name):''}</b>
+    <div class="muted" style="font-size:12px;margin-top:3px">${esc(L.unit||'1食あたり')}
+      ${per(L.kcal,'kcal')} ／ P${per(L.p,'g')} ／ F${per(L.f,'g')} ／ C${per(L.c,'g')}</div>
+    ${(L.p==null||L.f==null||L.c==null)?`<div class="muted" style="font-size:11px;margin-top:4px">
+      読めなかった項目は空のままにしてあります（勝手に埋めません）。</div>`:''}
+    <label style="margin-top:8px">いくつ食べた？</label>
+    <div class="setln" style="margin-top:4px">
+      <button class="stepb" onclick="labelQty(-1)">−1</button>
+      <button class="stepb" onclick="labelQty(-0.5)">−0.5</button>
+      <input class="numin" type="number" inputmode="decimal" step="0.25" value="${q}" onchange="labelQtySet(this.value);renderMeal()">
+      <button class="stepb" onclick="labelQty(0.5)">+0.5</button>
+      <button class="stepb" onclick="labelQty(1)">+1</button>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:6px">入れる値：<b>${Math.round(L.kcal*q)}kcal</b>
+      ${L.p!=null?` ／ P${Math.round(L.p*q)}g`:''}${L.f!=null?` ／ F${Math.round(L.f*q)}g`:''}${L.c!=null?` ／ C${Math.round(L.c*q)}g`:''}</div>
+    <button class="btn" style="margin-top:9px" onclick="applyLabel()">この数値を入れる（実測として記録）</button>
+    <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="window._labelRead=null;renderMeal()">やめる</button>
+  </div>`;}
+function foodDbCard(){
+  const list=foodDbList();
+  if(!list.length)return '';
+  return `<details style="margin-top:9px"><summary style="font-size:13px;font-weight:800;color:var(--sub)">
+      ⭐️ 登録した市販品から入れる（${list.length}件）</summary>
+    <div style="margin-top:7px">${list.slice(0,30).map(o=>`
+      <div class="row" style="justify-content:space-between;align-items:center;gap:6px;
+        border-top:1px dotted var(--line);padding:7px 0">
+        <div style="flex:1 1 auto;min-width:0">
+          <b style="font-size:13px">${esc(o.name)}</b>
+          <div class="muted" style="font-size:11px">${esc(o.unit||'')} ${o.kcal}kcal${o.p!=null?' / P'+o.p+'g':''}</div></div>
+        <button class="minibtn" onclick="applyFoodDb('${esc(o.name).replace(/'/g,'')}')">入れる</button>
+        <button class="del" style="font-size:11px" onclick="foodDbDel('${esc(o.name).replace(/'/g,'')}')">消す</button>
+      </div>`).join('')}</div></details>`;}
 
 /* ---------- 入力バー ---------- */
 function v7Send(){
@@ -2742,7 +3106,7 @@ function tlNut(){
   if(h>=18)return `<div class="muted" style="font-size:11px">タンパク質</div>
     <div class="big" style="color:${inn.p>=g.p?'var(--accentD)':'var(--accent2)'}">${Math.round(inn.p)}<span style="font-size:13px">/${g.p}g</span></div>
     <div class="muted" style="font-size:11px;margin-top:2px">${inn.p>=g.p?'達成！':'あと'+pLeft+'g'}
-      ・カロリーは${left>=0?'あと'+left:'+'+(-left)}kcal</div>`;
+      ・カロリーは${left>=0?'あと'+left:'+'+(-left)}kcal${inn.est?`<br>うち${inn.p-inn.pM}gは推定`:''}</div>`;
   return `<div class="muted" style="font-size:11px">カロリー</div>
     <div class="big">${Math.round(inn.k)}<span style="font-size:13px">/${g.k}</span></div>
     <div class="muted" style="font-size:11.5px;margin-top:1px;color:${left<0?'var(--accent2)':'var(--sub)'}">
@@ -3727,7 +4091,8 @@ function fbToday(){
       +' '+mealKcal(m)+'kcal'+(mealHasNut(m)?'(P'+Math.round(+m.p||0)+')':'(推定)')).join(' ／ '));
     if(nutReady()){
       const inn=dayIntake(t),g=targetPFC(t);
-      if(g)L.push('合計 '+Math.round(inn.k)+'kcal / 目標 '+g.k+'kcal、P '+Math.round(inn.p)+'g / 目標 '+g.p+'g');
+      if(g)L.push('合計 '+Math.round(inn.k)+'kcal / 目標 '+g.k+'kcal、P '+Math.round(inn.p)+'g / 目標 '+g.p+'g'
+        +(inn.est?`（うち数値が入っているのは ${inn.kM}kcal・P${inn.pM}g ぶんだけ。残りは推定なので当てにしすぎないこと）`:''));
     }
   }else L.push('【今日の食事】まだ記録なし');
   if(so.length)L.push('【筋肉痛】'+so.map(s=>(s.parts||[]).join('・')+(s.level?'('+s.level+')':'')).join(' / '));
