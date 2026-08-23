@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.8</title>
+<title>カラダ管理 v7.9</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -1461,7 +1461,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.8（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.9（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2692,6 +2692,12 @@ function renderMeal(){
          <div class="muted" style="font-size:11px;margin-top:5px;line-height:1.7">
            パッケージに<b>印刷された数字をそのまま読む</b>だけなので、料理の写真から当てるのと違って正確です。
            コンビニ・プロテイン・冷凍食品はこれが一番早い。</div>
+         <button class="btn gray" style="margin-top:9px" onclick="pickPackagePhoto('${m.id}')">📷 パッケージを撮って商品を当てる</button>
+         <div class="muted" style="font-size:11px;margin-top:5px;line-height:1.7">
+           下の「調べてある市販品」の中から、写真に写っているものを当てます。
+           <b>AIがやるのは"どれか当てる"ところだけ</b>で、栄養の数値はメーカー公式の表から入ります。
+           ベースブレッドの味の見分けはこれが速いです。</div>
+         ${seedFoodCard()}
          ${foodDbCard()}`}
        <button class="btn gray" style="margin-top:11px" ${busy?'disabled':''} onclick="recalcMeal('${m.id}')">
          ${busy?'計算中…':'AIに文章から見積もらせる'}</button>
@@ -2816,6 +2822,7 @@ async function recalcMeal(id){
    ・単位（100gあたり／1食あたり）を必ず取って、個数を掛けてから入れる
    ・一度読んだものは D.foodDb に貯めて、次からはタップ1回で正確な数値が入る
    ===================================================================== */
+function r1(v){return Math.round(v*10)/10;}
 function normProd(s){return String(s||'').replace(/\s+/g,'').replace(/[（）()]/g,'').toLowerCase();}
 function foodDbList(){
   const db=D.foodDb||{};
@@ -2888,14 +2895,17 @@ function applyLabel(){
   const L=window._labelRead;if(!L||L.kcal==null)return;
   const m=(D.meals||[]).find(x=>x.id===L.mealId);if(!m)return;
   const q=+L.qty||1;
-  const mul=(v)=>v==null?null:Math.round(v*q);
+  /* 13.5g のような小数を整数に丸めると、ベースブレッド2袋で1gずれる。
+     小数第1位まで残す（画面のバーは合計してから丸めている） */
+  const mul=(v)=>v==null?null:Math.round(v*q*10)/10;
   m.kcal=mul(L.kcal);
   if(L.p!=null)m.p=mul(L.p); if(L.f!=null)m.f=mul(L.f); if(L.c!=null)m.c=mul(L.c);
   const label=(L.name||'').trim();
   if(label){
     const add=label+(q!==1?` ×${q}`:'');
     m.memo=((m.memo||'').trim()?m.memo.trim()+'・':'')+add;
-    foodDbSave({name:label,unit:L.unit,kcal:L.kcal,p:L.p,f:L.f,c:L.c});
+    foodDbSave({name:label,unit:L.unit,kcal:L.kcal,p:L.p,f:L.f,c:L.c,
+      src:L.src||'',seedKey:L.seedKey||''});
   }
   window._labelRead=null;save();renderMeal();}
 function applyFoodDb(name){
@@ -2903,19 +2913,155 @@ function applyFoodDb(name){
   const id=window._mealEdit;
   window._labelRead={mealId:id,name:o.name,unit:o.unit,kcal:o.kcal,p:o.p,f:o.f,c:o.c,qty:1,fromDb:true};
   renderMeal();}
+
+/* =====================================================================
+   v7.9 M さんがよく食べるものを「調べたうえで」内蔵する
+   ---------------------------------------------------------------------
+   ここの数値は AI の推定ではなく、**メーカー公式の栄養成分表示**を
+   1件ずつ確認して書き写したもの。src に出典URL、chk に確認日を持たせて
+   画面にも出す（数字の出どころが分からないのが一番よくない）。
+   商品はリニューアルで中身が変わるので、パッケージと違っていたら
+   📋の読み取りで上書きできる（そちらが常に正）。
+   ===================================================================== */
+const SEED_CHK='2026-08-20';
+const SEED_FOODS=[
+ {k:'oikos_st', brand:'ダノン オイコス', name:'オイコス プロテインドリンク ストロベリー',
+  unit:'1本(240ml)あたり', kcal:120, p:18, f:0, c:12, salt:0.26,
+  hint:'白い紙パック・ピンクのいちご・「高吸収タンパク質18g」「脂肪0」',
+  src:'https://www.danone.co.jp/oikos/proteindrink/'},
+
+ {k:'bb_choco', brand:'BASE BREAD', name:'ベースブレッド チョコレート',
+  unit:'1袋あたり', kcal:266, p:13.6, f:9.1, c:35.4,
+  hint:'茶色い袋・チョコ味のロールパン', src:'https://basefood.zendesk.com/hc/ja'},
+ {k:'bb_cinnamon', brand:'BASE BREAD', name:'ベースブレッド シナモン',
+  unit:'1袋あたり', kcal:260, p:13.6, f:9.4, c:33.6,
+  hint:'シナモン味のロールパン', src:'https://basefood.zendesk.com/hc/ja'},
+ {k:'bb_milk', brand:'BASE BREAD', name:'ベースブレッド ミルク',
+  unit:'1袋あたり', kcal:250, p:13.5, f:8.5, c:33.1,
+  hint:'白っぽい袋・ミルク味のロールパン', src:'https://basefood.zendesk.com/hc/ja'},
+ {k:'bb_sweetpotato', brand:'BASE BREAD', name:'ベースブレッド さつまいも',
+  unit:'1袋あたり', kcal:249, p:13.5, f:8.3, c:33.0,
+  hint:'紫っぽい袋・さつまいも味のロールパン', src:'https://basefood.zendesk.com/hc/ja'},
+ {k:'bb_raisin', brand:'BASE BREAD', name:'ベースブレッド ミニ食パン レーズン',
+  unit:'1袋(2枚)あたり', kcal:281, p:13.5, f:7.4, c:38.1,
+  hint:'四角い食パン型が2枚・レーズン入り', src:'https://basefood.zendesk.com/hc/ja'},
+ {k:'bb_orange', brand:'BASE BREAD', name:'ベースブレッド ミニ食パン オレンジ',
+  unit:'1袋(2枚)あたり', kcal:251, p:13.5, f:7.3, c:35.7,
+  hint:'四角い食パン型が2枚・オレンジ味', src:'https://basefood.zendesk.com/hc/ja'},
+
+ {k:'sakana_sausage', brand:'ニッスイ', name:'おさかなのソーセージ',
+  unit:'1本(70g)あたり', kcal:123, p:6.3, f:6.5, c:9.9, salt:1.3,
+  hint:'オレンジ色のフィルム・魚肉ソーセージ・エコクリップ',
+  src:'https://www.nissui.co.jp/product/00125.html'},
+ {k:'cheekama', brand:'丸善', name:'チーかま',
+  unit:'1本(26g)あたり', kcal:31, p:2.7, f:0.7, c:3.4, salt:0.6,
+  hint:'小さいチーズかまぼこ・4本束', src:'https://mrz.co.jp/product/4703/'},
+ {k:'sakeru_plain', brand:'雪印メグミルク', name:'雪印北海道100 さけるチーズ プレーン',
+  unit:'1本(25g)あたり', kcal:80, p:6.8, f:5.7, c:0.5, salt:0.49,
+  hint:'細長い袋のさけるチーズ・プレーン',
+  src:'https://www.meg-snow.com/products/detail.php?p=sakerucheese'}
+];
+function seedFind(k){return SEED_FOODS.find(x=>x.k===k);}
+/* 内蔵の数値を読み取りカードに載せる。数字は必ずこの表から取る（AIに数えさせない） */
+function applySeed(k,detected){
+  const o=seedFind(k);if(!o)return;
+  window._labelRead={mealId:window._mealEdit,name:o.name,unit:o.unit,
+    kcal:o.kcal,p:o.p,f:o.f,c:o.c,qty:1,seedKey:o.k,src:o.src,detected:!!detected};
+  renderMeal();}
+
+/* ---- パッケージを撮って、内蔵リストのどれかを当てる ----
+   AI にやらせるのは「どれか当てる」ところだけ。栄養の数字は
+   上の表（メーカー公式）から取るので、AI が数字を作ることはない。 */
+function pickPackagePhoto(mealId){
+  const inp=document.createElement('input');
+  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.onchange=()=>{const f=inp.files&&inp.files[0];if(f)readPackage(mealId,f);};
+  inp.click();}
+async function readPackage(mealId,file){
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
+  window._labelRead={mealId:mealId,busy:true,pkg:true};renderMeal();
+  try{
+    const dataUrl=await fileToDataUrl(file,1200);
+    const mt=(dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
+    const list=SEED_FOODS.map(o=>`${o.k} = ${o.name}（${o.hint}）`).join('\n');
+    const lines=[
+      'この写真に写っている食品が、次のリストのどれかを当ててください。',
+      '',
+      list,
+      '',
+      '守ること：',
+      '・パッケージの文字・色・形を根拠にすること。',
+      '・栄養の数値は答えないこと（こちらで持っています）。',
+      '・リストのどれでもない、または自信が無いときは none と答えること。当てずっぽうは禁止。',
+      '',
+      '出力は次の2行だけ：',
+      'PICK: 上のキー（例 bb_choco）または none',
+      'WHY: 根拠を10〜30字で（例：紫の袋にさつまいもと書いてある）'
+    ];
+    const content=[{type:'text',text:lines.join('\n')},
+      {type:'image',source:{type:'base64',media_type:mt,
+        data:dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}}];
+    const r=await aiCallRetry([{role:'user',content:content}],
+      {model:aiModelData(),max_tokens:200,
+       system:'あなたは写真から商品を見分ける係です。自信が無ければ必ず none と答えます。数値は一切答えません。'});
+    const pk=((r.match(/^\s*PICK\s*[:：]\s*(\S+)/mi)||[])[1]||'').trim();
+    const why=((r.match(/^\s*WHY\s*[:：]\s*(.+)$/mi)||[])[1]||'').trim();
+    if(!pk||pk==='none'||!seedFind(pk)){
+      window._labelRead={mealId:mealId,pkg:true,
+        err:'写真からは商品を特定できませんでした。下のリストから選ぶか、📋で栄養成分表示を撮ってね。'};
+      renderMeal();return;}
+    applySeed(pk,true);
+    const L=window._labelRead;if(L)L.why=why;
+    renderMeal();
+  }catch(e){
+    window._labelRead={mealId:mealId,pkg:true,err:e.message};renderMeal();}
+}
+/* 内蔵リスト（ブランドごとにまとめて出す） */
+function seedFoodCard(){
+  const brands=[];SEED_FOODS.forEach(o=>{if(brands.indexOf(o.brand)<0)brands.push(o.brand);});
+  return `<details style="margin-top:9px"><summary style="font-size:13px;font-weight:800;color:var(--sub)">
+      📚 調べてある市販品から入れる（${SEED_FOODS.length}件）</summary>
+    <div class="muted" style="font-size:11px;margin-top:6px;line-height:1.7">
+      メーカー公式の栄養成分表示を1件ずつ確認して入れた数値です（確認日 ${SEED_CHK}）。
+      リニューアルでパッケージと違っていたら、📋で読み取ったほうが正しいです。</div>
+    ${brands.map(b=>`<div style="margin-top:10px">
+      <div style="font-size:11px;font-weight:800;color:var(--sub);letter-spacing:.05em">${esc(b)}</div>
+      ${SEED_FOODS.filter(o=>o.brand===b).map(o=>`
+        <div class="row" style="justify-content:space-between;align-items:center;gap:6px;
+          border-top:1px dotted var(--line);padding:7px 0">
+          <div style="flex:1 1 auto;min-width:0">
+            <b style="font-size:13px">${esc(o.name.replace(o.brand+' ',''))}</b>
+            <div class="muted" style="font-size:11px">${esc(o.unit)} ${o.kcal}kcal / P${o.p}g / F${o.f}g / C${o.c}g</div></div>
+          <button class="minibtn" onclick="applySeed('${o.k}')">入れる</button>
+        </div>`).join('')}</div>`).join('')}
+    <div class="muted" style="font-size:11px;margin-top:12px;line-height:1.7">
+      <b>無印良品のフリーズドライスープ</b>は、公式サイトが種類ごとの栄養成分を出していないので入れていません
+      （17種類くらいあって中身も違うため、こちらで数字を作るのはやめました）。
+      📋で一度読み取れば、その種類が⭐️の辞書に入って次からタップ1回になります。</div>
+  </details>`;}
 /* 読み取り結果の確認カード。ここで個数を掛けてから入れる */
 function labelCard(mealId){
   const L=window._labelRead;
   if(!L||L.mealId!==mealId)return '';
-  if(L.busy)return `<div class="banner" style="margin-top:9px">📋 栄養成分表示を読み取り中…</div>`;
+  if(L.busy)return `<div class="banner" style="margin-top:9px">${L.pkg?'📷 写真から商品を探しています…':'📋 栄養成分表示を読み取り中…'}</div>`;
   if(L.err)return `<div class="banner" style="margin-top:9px">⚠️ ${esc(L.err)}
     <button class="btn sm gray" style="width:100%;margin-top:7px" onclick="window._labelRead=null;renderMeal()">閉じる</button></div>`;
   const q=+L.qty||1;
   const per=(v,u)=>v==null?'—':(v+(u||''));
+  const head=L.detected?'📷 これだと思います':(L.seedKey?'📚 調べてある商品':(L.fromDb?'⭐️ 登録済み':'📋 読み取り結果'));
   return `<div class="banner" style="margin-top:9px">
-    <b>${L.fromDb?'⭐️ 登録済み':'📋 読み取り結果'}${L.name?'：'+esc(L.name):''}</b>
+    <b>${head}${L.name?'：'+esc(L.name):''}</b>
+    ${L.why?`<div class="muted" style="font-size:11px;margin-top:2px">判断の根拠：${esc(L.why)}</div>`:''}
     <div class="muted" style="font-size:12px;margin-top:3px">${esc(L.unit||'1食あたり')}
       ${per(L.kcal,'kcal')} ／ P${per(L.p,'g')} ／ F${per(L.f,'g')} ／ C${per(L.c,'g')}</div>
+    ${L.seedKey?`<div class="muted" style="font-size:11px;margin-top:3px">
+      数値はメーカー公式の栄養成分表示（${SEED_CHK} 確認）。AIが数えた数字ではありません。
+      ${L.src?`<a href="${esc(L.src)}" target="_blank" rel="noopener">出典</a>`:''}</div>`:''}
+    ${L.detected?`<details style="margin-top:6px"><summary style="font-size:12px;font-weight:800;color:var(--sub)">違う？ 選び直す</summary>
+      <div style="margin-top:5px">${SEED_FOODS.map(o=>
+        `<button class="minibtn" style="margin:2px 3px 0 0;font-size:11px" onclick="applySeed('${o.k}')">${esc(o.name.replace(o.brand+' ',''))}</button>`).join('')}</div>
+      <div class="muted" style="font-size:11px;margin-top:5px">どれでもないときは、やめて📋で栄養成分表示を撮るのが確実です。</div>
+    </details>`:''}
     ${(L.p==null||L.f==null||L.c==null)?`<div class="muted" style="font-size:11px;margin-top:4px">
       読めなかった項目は空のままにしてあります（勝手に埋めません）。</div>`:''}
     <label style="margin-top:8px">いくつ食べた？</label>
@@ -2926,8 +3072,8 @@ function labelCard(mealId){
       <button class="stepb" onclick="labelQty(0.5)">+0.5</button>
       <button class="stepb" onclick="labelQty(1)">+1</button>
     </div>
-    <div class="muted" style="font-size:12px;margin-top:6px">入れる値：<b>${Math.round(L.kcal*q)}kcal</b>
-      ${L.p!=null?` ／ P${Math.round(L.p*q)}g`:''}${L.f!=null?` ／ F${Math.round(L.f*q)}g`:''}${L.c!=null?` ／ C${Math.round(L.c*q)}g`:''}</div>
+    <div class="muted" style="font-size:12px;margin-top:6px">入れる値：<b>${r1(L.kcal*q)}kcal</b>
+      ${L.p!=null?` ／ P${r1(L.p*q)}g`:''}${L.f!=null?` ／ F${r1(L.f*q)}g`:''}${L.c!=null?` ／ C${r1(L.c*q)}g`:''}</div>
     <button class="btn" style="margin-top:9px" onclick="applyLabel()">この数値を入れる（実測として記録）</button>
     <button class="btn sm gray" style="width:100%;margin-top:6px" onclick="window._labelRead=null;renderMeal()">やめる</button>
   </div>`;}
