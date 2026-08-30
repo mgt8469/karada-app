@@ -1067,7 +1067,7 @@ function vMeal(){
     <label>ボリューム感</label>
     <div class="row" id="lvRow">${LEVELS.map(l=>`<button class="chip ${l===_mealLevel?'on':''}" onclick="_mealLevel='${l}';document.querySelectorAll('#lvRow .chip').forEach(c=>c.classList.remove('on'));event.target.classList.add('on')">${l}</button>`).join('')}</div>
     <label>写真（任意・端末内のみ）</label>
-    <input id="mPhoto" type="file" accept="image/*" capture="environment">
+    <input id="mPhoto" type="file" accept="image/*">
     <button class="btn" style="margin-top:10px" onclick="saveMeal()">記録する</button>
   </div>
   <h3>今日の食事</h3>
@@ -2839,7 +2839,7 @@ function foodDbDel(name){
 
 function pickLabelPhoto(mealId){
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.type='file';inp.accept='image/*';
   inp.onchange=()=>{const f=inp.files&&inp.files[0];if(f)readLabel(mealId,f);};
   inp.click();}
 
@@ -2974,7 +2974,7 @@ function applySeed(k,detected){
    上の表（メーカー公式）から取るので、AI が数字を作ることはない。 */
 function pickPackagePhoto(mealId){
   const inp=document.createElement('input');
-  inp.type='file';inp.accept='image/*';inp.capture='environment';
+  inp.type='file';inp.accept='image/*';
   inp.onchange=()=>{const f=inp.files&&inp.files[0];if(f)readPackage(mealId,f);};
   inp.click();}
 async function readPackage(mealId,file){
@@ -3946,10 +3946,10 @@ function renderNewMeal(){
           <div class="row" style="justify-content:center;margin-top:7px">
             <button class="minibtn" onclick="nmClearPhoto()">写真を撮り直す</button></div>`
        : `<label class="camzone">
-            <input type="file" accept="image/*" capture="environment" onchange="nmPick(this)" hidden>
+            <input type="file" accept="image/*" onchange="nmPick(this)" hidden>
             <span class="camic">📷</span>
-            <b>写真をとる</b>
-            <span class="muted" style="font-size:12px">タップでカメラが開きます（ライブラリからも選べます）</span>
+            <b>写真を追加</b>
+            <span class="muted" style="font-size:12px">タップして、その場で撮るかアルバムから選べます</span>
           </label>`}
 
      <div class="card" style="margin-top:12px">
