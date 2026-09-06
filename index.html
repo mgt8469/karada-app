@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v7.9</title>
+<title>カラダ管理 v8.0</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -626,6 +626,7 @@ function exCard(x,i){
   if(x.noWeight){
     return `<div class="card excard" data-eid="${x.id}">${head}${nwToggle}
     ${prev&&(prev.memo||(prev.sets&&prev.sets[0]&&prev.sets[0].dur))?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}${prev.sets&&prev.sets[0]&&prev.sets[0].dur?'　⏱'+esc(prev.sets[0].dur):''}${prev.memo?'　📝 '+esc(prev.memo):''}</div>`:''}
+    ${exTargetRow(x)}
     <div class="row" style="margin-top:8px;align-items:center"><label style="margin:0">時間（分）</label>
       <input type="number" inputmode="numeric" style="width:100px" placeholder="分" value="${x.dur??''}" onchange="itemDur('${x.id}',this.value)"></div>
     <textarea class="exmemo" placeholder="メモ（内容・感じたこと）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:64px">${esc(memoV)}</textarea>
@@ -635,6 +636,7 @@ function exCard(x,i){
   return `<div class="card excard" data-eid="${x.id}">${head}${nwToggle}
     ${prev?`<div style="background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px;margin-top:8px;font-size:12px;color:var(--sub)">前回 ${fmtD(prev.date)}：${prev.sets.map(fmtSet).join(' , ')||'—'}${prev.memo?'<br>📝 '+esc(prev.memo):''}
       <button class="btn sm ghost" style="margin-top:8px;width:100%" onclick="copyPrevTo('${x.id}')">⭱ 前回の記録をコピー</button></div>`:'<div class="muted" style="font-size:12px;margin-top:6px">はじめての種目</div>'}
+    ${exTargetRow(x)}
     <textarea class="exmemo" placeholder="メモ（フォーム・意識・効いた部位／コーチの書き込みもここに・種目ごとに永続保存）" oninput="autoGrow(this)" onchange="itemMemo('${x.id}',this.value)" style="margin-top:8px;min-height:40px">${esc(memoV)}</textarea>
     <div class="muted" style="margin-top:8px">総ボリューム ${itemVol(x)}kg${weightDeltaHtml(x,prev)}</div>
     <div class="setwrap">
@@ -667,8 +669,27 @@ function ensurePlan(){if(!D.plan||D.plan.date!==today())D.plan={date:today(),ite
   if(D.plan.restSec==null)D.plan.restSec=60;if(D.plan.restOn==null)D.plan.restOn=true;
   if(D.plan.paused==null)D.plan.paused=false;if(D.plan.accum==null)D.plan.accum=0;if(D.plan.segStart==null)D.plan.segStart=D.plan.startTs||null;
   if(D.plan.hideUndone==null)D.plan.hideUndone=true;if(D.plan.review==null)D.plan.review='';
-  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;if(it.dur==null)it.dur='';});}
-function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,dur:'',done:false,doneTs:null,collapsed:false,sets:[{kg:'',reps:'',done:false}]};}
+  D.plan.items.forEach(it=>{if(!Array.isArray(it.sets))it.sets=[{kg:'',reps:'',done:false}];if(it.memo==null)it.memo='';if(it.part==null)it.part='';if(it.noWeight==null)it.noWeight=false;if(it.collapsed==null)it.collapsed=false;if(it.dur==null)it.dur='';if(it.target==null)it.target='';});}
+function newItem(n){return {id:uid(),name:n,part:'',memo:'',noWeight:false,dur:'',done:false,doneTs:null,collapsed:false,target:'',sets:[{kg:'',reps:'',done:false}]};}
+/* v8.0④ 種目カードの「狙う筋」UI。EX[種目].p/.s が候補（見つからない種目名では出さない） */
+function exTargetRow(x){
+  const hit=findEx(x.name);if(!hit)return '';
+  const cands=[];(hit.data.p||[]).concat(hit.data.s||[]).forEach(k=>{if(cands.indexOf(k)<0&&MUS[k])cands.push(k);});
+  if(!cands.length)return '';
+  return `<div style="margin-top:8px">
+    <label style="margin:0 0 4px">🎯 今日はどこを狙う？（任意）</label>
+    <div class="row">${cands.map(k=>`<button class="chip${x.target===k?' on':''}" onclick="setItemTarget('${x.id}','${x.target===k?'':k}')">${MUS[k].jp}</button>`).join('')}</div>
+  </div>`;}
+function setItemTarget(id,k){const x=planItem(id);if(!x)return;x.target=k||'';save();render();}
+/* 今日のプランで、その種目名に設定されている「狙う筋」キーを返す（無ければ''） */
+function todaysTargetKeyFor(name){
+  if(!name)return '';ensurePlan();
+  const hit=findEx(name);
+  const item=(D.plan.items||[]).find(it=>anatNorm(it.name)===anatNorm(name)||(hit&&anatNorm(it.name)===anatNorm(hit.key)));
+  return (item&&item.target&&MUS[item.target])?item.target:'';}
+function todaysTargetLine(focus){
+  const k=todaysTargetKeyFor(focus);
+  return k?`【今日の狙い】この種目では今日、特に「${MUS[k].jp}」を意識して効かせたいとのこと。アドバイス・意識点はここを優先して。\n`:'';}
 function toggleCollapse(id){const x=planItem(id);if(!x)return;x.collapsed=!x.collapsed;save();render();}
 function toggleExMenu(id){window._exMenu=window._exMenu||{};window._exMenu[id]=!window._exMenu[id];render();}
 function collapseCompleted(){ensurePlan();let n=0;D.plan.items.forEach(it=>{const done=it.noWeight?it.done:((it.sets||[]).length&&it.sets.every(s=>s.done));if(done&&!it.collapsed){it.collapsed=true;n++;}});save();render();}
@@ -1198,7 +1219,26 @@ function vKarada(){
     </div>${s==='採寸'?vMeasure():s==='体調・周期'?vCond():s==='筋肉痛'?vSore():s==='写真'?vPhoto():vChart()}`;
 }
 const SOREPARTS=['胸','背中','肩','二の腕','前腕','お尻','太もも前','太もも裏','内もも','ふくらはぎ','腹','首'];
-function soreTap(p){window._soreParts=window._soreParts||[];const a=window._soreParts;const i=a.indexOf(p);if(i>=0)a.splice(i,1);else a.push(p);render();}
+/* v8.0③ 部位→筋のマッピング（キーは既存MUSの20筋のみ。無いもの＝BodyParts3Dで塗り分けられないものは対象外） */
+const REGION2MUS={
+ '胸':['pec'],'背中':['lat','trapM','trapU','rhomboid','erector'],'肩':['deltA','deltM','deltP'],
+ '二の腕':['biceps','triceps'],'前腕':['forearm'],'お尻':['gluteMax','gluteMed'],
+ '太もも前':['quad'],'太もも裏':['ham'],'内もも':['adductor'],'ふくらはぎ':['calf'],
+ '腹':['rectus','oblique'],'首':['trapU']
+};
+function soreTap(p){window._soreParts=window._soreParts||[];const a=window._soreParts;const i=a.indexOf(p);if(i>=0)a.splice(i,1);else a.push(p);
+  const cands=[];a.forEach(pp=>(REGION2MUS[pp]||[]).forEach(k=>{if(cands.indexOf(k)<0)cands.push(k);}));
+  window._soreMuscles=(window._soreMuscles||[]).filter(k=>cands.indexOf(k)>=0);
+  render();}
+function toggleSoreMuscle(k){window._soreMuscles=window._soreMuscles||[];const a=window._soreMuscles;const i=a.indexOf(k);if(i>=0)a.splice(i,1);else a.push(k);render();}
+function soreMuscleRow(){
+  const parts=window._soreParts||[];const cands=[];
+  parts.forEach(p=>(REGION2MUS[p]||[]).forEach(k=>{if(cands.indexOf(k)<0)cands.push(k);}));
+  if(!cands.length)return '';
+  const sel=window._soreMuscles||[];
+  return `<label style="margin-top:10px">筋まで選ぶ（任意・わかれば）</label>
+    <div class="row">${cands.map(k=>`<button class="chip ${sel.indexOf(k)>=0?'on':''}" onclick="toggleSoreMuscle('${k}')">${MUS[k].jp}</button>`).join('')}</div>`;
+}
 function soreZone(p,x,y,w,h){const on=(window._soreParts||[]).includes(p);
   return `<g onclick="soreTap('${p}')" style="cursor:pointer"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="5" fill="${on?'var(--accent)':'var(--chip)'}" stroke="${on?'var(--accent)':'var(--sub)'}" stroke-width="1"/><text x="${x+w/2}" y="${y+h/2+2.6}" text-anchor="middle" font-size="6.6" font-weight="700" fill="${on?'#1a1d22':'var(--ink)'}">${p}</text></g>`;}
 function bodyMap(){
@@ -1242,7 +1282,10 @@ function vSore(){
     <label>部位（イラストをタップ・複数OK）</label>
     ${bodyMap()}
     <div class="muted" style="font-size:12px;margin-top:6px">選択中：${(window._soreParts||[]).length?(window._soreParts).map(esc).join('・'):'なし'}</div>
-    <label>強さ</label>
+    ${soreMuscleRow()}
+    <label style="margin-top:10px">コメント（任意）</label>
+    <textarea id="soreNote" class="exmemo" placeholder="例：下部に集中してて上部が薄い" oninput="window._soreNote=this.value;autoGrow(this)" style="min-height:44px">${esc(window._soreNote||'')}</textarea>
+    <label style="margin-top:10px">強さ</label>
     <div class="row" id="soreLvRow">${['軽い','普通','強い'].map(l=>`<button class="chip" onclick="setSoreLv('${l}',this)">${l}</button>`).join('')}</div>
     <button class="btn" style="margin-top:10px" onclick="saveSore()">記録する</button>
   </div>
@@ -1250,14 +1293,38 @@ function vSore(){
   ${D.soreness.slice().reverse().slice(0,25).map(s=>`<div class="card" style="padding:11px 14px">
     <div class="row" style="justify-content:space-between"><b>${fmtD(s.date)}${s.level?` <span class="pill">${esc(s.level)}</span>`:''}</b>
     <button class="del" onclick="delItem('soreness','${s.id}')">削除</button></div>
-    <div class="muted">${(s.parts||[]).map(esc).join('・')}</div></div>`).join('')||'<div class="muted">—</div>'}`;
+    <div class="muted">${(s.parts||[]).map(esc).join('・')}</div>
+    ${(s.muscles&&s.muscles.length)?`<div class="muted" style="font-size:12px;margin-top:2px">🔬 ${s.muscles.map(k=>MUS[k]?MUS[k].jp:k).join('・')}</div>`:''}
+    ${s.note?`<div style="font-size:12.5px;margin-top:5px;background:var(--card2);border-radius:8px;padding:6px 8px">📝 ${esc(s.note)}</div>`:''}
+    <button class="minibtn" style="margin-top:7px" onclick="suggestSoreFix('${s.id}')" ${window._soreBusy===s.id?'disabled':''}>${window._soreBusy===s.id?'🤖 考え中…':'🤖 次回の改善案'}</button>
+    ${s.suggestion?`<div style="font-size:13px;line-height:1.7;margin-top:7px;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:10px">${mdToHtml(s.suggestion)}</div>`:''}
+    </div>`).join('')||'<div class="muted">—</div>'}`;
+}
+/* v8.0③ コメント＋直近の筋トレ記録をもとに、AIが次回の改善案を提案 */
+async function suggestSoreFix(id){
+  const s=(D.soreness||[]).find(x=>x.id===id);if(!s)return;
+  if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
+  window._soreBusy=id;render();
+  try{
+    const muscleLabels=(s.muscles||[]).map(k=>MUS[k]?MUS[k].jp:k);
+    const relatedKeys=muscleLabels.length?Object.keys(EX).filter(k=>{const d=EX[k];return (d.p||[]).concat(d.s||[]).some(m=>s.muscles.indexOf(m)>=0);}):[];
+    const recent=D.workouts.slice(-30).filter(w=>{if(!relatedKeys.length)return true;const hit=findEx(w.name);return hit&&relatedKeys.indexOf(hit.key)>=0;}).slice(-8);
+    const recentText=recent.length?recent.map(w=>`${w.date} ${w.name}[${(w.sets||[]).map(fmtSet).join(',')||w.memo||'-'}]`).join(' / '):'（関連する直近の記録なし）';
+    const sys='あなたは解剖学に厳密なフィットネスコーチ。整形外科志望の医療従事者向けに簡潔に。痛み(疼痛)と筋肉痛(遅発性筋肉痛)を区別し、鋭い痛み・関節の腫れ・しびれなどがあれば運動継続ではなく受診を勧める。断定しすぎず、安全第一。書式は「## 見出し」「- 箇条書き」「**太字**」のみ、3〜6行で簡潔に。';
+    const userMsg=`【筋肉痛の記録】\n日付: ${s.date}\n部位: ${(s.parts||[]).join('・')}${s.level?'（強さ:'+s.level+'）':''}\n${muscleLabels.length?'筋: '+muscleLabels.join('・')+'\n':''}${s.note?'本人コメント: '+s.note+'\n':''}\n【直近の関連トレ記録】\n${recentText}\n\n上記を踏まえ、次回のトレーニングで意識すると良い改善案を、解剖学的根拠つきで簡潔に。フォームの修正点や、狙いたい筋への意識点を具体的に。`;
+    s.suggestion=await aiCallRetry([{role:'user',content:userMsg}],{system:sys,model:aiModelChat(),max_tokens:700});
+    save();
+  }catch(e){s.suggestion='⚠️ '+e.message;}
+  window._soreBusy=null;save();render();
 }
 function toggleSorePart(p,el){el.classList.toggle('on');window._soreParts=window._soreParts||[];
   const a=window._soreParts;const i=a.indexOf(p);if(i>=0)a.splice(i,1);else a.push(p);}
 function setSoreLv(l,el){document.querySelectorAll('#soreLvRow .chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');window._soreLv=l;}
 function saveSore(){const parts=(window._soreParts||[]).slice();if(!parts.length){alert('部位を選んでね');return;}
-  D.soreness.push({id:uid(),date:document.getElementById('soreDate').value||today(),parts,level:window._soreLv||''});
-  D.soreness.sort((a,b)=>a.date<b.date?-1:1);window._soreParts=[];window._soreLv='';save();render();}
+  const muscles=(window._soreMuscles||[]).slice();
+  const note=(window._soreNote||(document.getElementById('soreNote')?document.getElementById('soreNote').value:'')||'').trim();
+  D.soreness.push({id:uid(),date:document.getElementById('soreDate').value||today(),parts,muscles,note,level:window._soreLv||''});
+  D.soreness.sort((a,b)=>a.date<b.date?-1:1);window._soreParts=[];window._soreMuscles=[];window._soreNote='';save();render();}
 function vMeasure(){
   return `
   <div class="banner">週1でOK（同じ時間・同じ条件で）。見た目の変化を一番正直に映す数字。全部埋めなくても大丈夫。</div>
@@ -1461,7 +1528,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v7.9（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v8.0（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1518,7 +1585,7 @@ function aiContext(){const L=[];
   const lm=D.measures.slice(-1)[0];if(lm)L.push('◾最新の採寸/体重: '+MFIELDS.filter(([k])=>lm[k]!=null).map(([k,l,u])=>l+lm[k]+u).join(' '));
   const pn=(D.photoNotes||[]).slice(-4);if(pn.length)L.push('◾写真の変化メモ(画像は非送信): '+pn.map(p=>`${p.date} ${(p.tags||[]).join('・')}${p.note?' '+p.note:''}`).join(' / '));
   const rc=D.conditions.slice(-5);if(rc.length)L.push('◾最近の体調/生理: '+rc.map(c=>`${c.date}${c.period?'🩸':''}${c.mood||''}${c.memo?'('+c.memo+')':''}`).join(' / '));
-  const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}`).join(' / '));
+  const rs=(D.soreness||[]).slice(-5);if(rs.length)L.push('◾最近の筋肉痛: '+rs.map(s=>`${s.date}${(s.parts||[]).join('・')}${s.level||''}${(s.muscles&&s.muscles.length)?'['+s.muscles.map(k=>MUS[k]?MUS[k].jp:k).join('・')+']':''}${s.note?'「'+s.note+'」':''}`).join(' / '));
   const sc=(D.schedule||[]).slice(-6);if(sc.length)L.push('◾直近の予定: '+sc.map(s=>`${s.date} ${s.type||''}${s.title||''}${s.time?'@'+s.time:''}`).join(' / '));
   if(nutReady()){const g=targetPFC(today()),i=dayIntake(today());
     L.push(`◾エネルギー(推定): 基礎代謝${bmr()}kcal / 今日の推定消費${tdee(today())}kcal / 目標摂取${g.k}kcal(P${g.p}g F${g.f}g C${g.c}g) / 今日の摂取${i.k}kcal(P${i.p}g F${i.f}g C${i.c}g・${i.n}食${i.est?`うち${i.est}件は推定`:''})`);
@@ -1528,7 +1595,7 @@ function aiContext(){const L=[];
   const sp=D.supList.map(s=>s.name+(s.timing?`(${s.timing})`:'')).join('・');if(sp)L.push('◾常用サプリ: '+sp);
   const wl=(D.wishlist||[]).slice(-8);if(wl.length)L.push('◾やってみたいメモ(気になる種目/投稿): '+wl.map(w=>w.text).join(' / '));
   return L.length?L.join('\n'):'（まだ記録が少ないです）';}
-function aiSystem(focus){const p=D.profile;const focusLine=focus?`【今回の話題】種目「${focus}」に集中したスレッドです。${focus}に関する相談・フォーム・記録を中心に答えて。\n`:'';
+function aiSystem(focus){const p=D.profile;const focusLine=focus?`【今回の話題】種目「${focus}」に集中したスレッドです。${focus}に関する相談・フォーム・記録を中心に答えて。\n${todaysTargetLine(focus)}`:'';
   return `あなたは${p.name||'ユーザー'}さん専属のフィットネス＆解剖学コーチです。相手は整形外科志望の医療従事者で、解剖学的に正確で具体的な説明を好みます。以下の記録を踏まえ、目標に沿って実行可能で簡潔にアドバイスしてください。断定しすぎず、必要なら安全面の注意も添える。日本語で要点を絞って回答。
 【書き方＝最重要。ここを守らないと読まれません】
 ◆長い文章のかたまりは禁止。スマホの縦画面で読むので、必ず次の形で書く。
@@ -2184,12 +2251,12 @@ function anat3dPaint(){
       +' <button class="minibtn" style="margin-top:10px" onclick="a3set(\'mode\',\'svg\')">模式図で見る</button></div>';
   });
 }
-function anat3dCard(prim,sec){
-  window._a3prim=prim;window._a3sec=sec;
+function anat3dCard(prim,sec,target){
+  window._a3prim=prim;window._a3sec=sec;window._a3target=target||'';
   if(!anat3dHas(prim,sec))_a3.mode='svg';
   return `<div class="card" style="padding:10px 8px 4px">
     <div id="a3box" class="a3box"></div>
-    <div id="a3svg" style="display:none">${anatSvg(prim,sec)}</div>
+    <div id="a3svg" style="display:none">${anatSvg(prim,sec,target)}</div>
     <div class="a3seg" id="a3views">
       <button data-k="view" data-v="back" onclick="a3set('view','back')">背面</button>
       <button data-k="view" data-v="oblique" onclick="a3set('view','oblique')">斜め</button>
@@ -2204,6 +2271,7 @@ function anat3dCard(prim,sec){
     <div class="row" style="gap:12px;justify-content:center;padding:8px 0 4px;font-size:11px">
       <span><span class="swatch" id="a3sw1" style="background:#e24a33;border-color:#b83a26"></span>主働筋</span>
       <span><span class="swatch" id="a3sw2" style="background:#f0a030;border-color:var(--accent2)"></span>協働筋</span>
+      ${target?`<span><span class="swatch" style="background:#3fd67a;border-color:#1f8a4d"></span>🎯今日の狙い（模式図）</span>`:''}
       <span id="a3sw3w" style="display:none"><span class="swatch" style="background:#dde4ec;border-color:#c9d3dd"></span>その他</span>
     </div>
     <div class="a3cred" id="a3cred">3Dモデル画像：BodyParts3D/Anatomography &copy; ライフサイエンス統合データベースセンター
@@ -2212,11 +2280,12 @@ function anat3dCard(prim,sec){
   </div>`;
 }
 
-function anatSvg(prim,sec){
+function anatSvg(prim,sec,target){
   const num={};prim.forEach((k,i)=>num[k]=i+1);sec.forEach((k,i)=>{if(!num[k])num[k]=prim.length+i+1;});
   let faint='',hot='',marks='';
   Object.keys(MUS).forEach(k=>{const m=MUS[k];const paths=(m.d||[]).map(dd=>`<path d="${dd}"/>`).join('');
-    if(prim.indexOf(k)>=0)hot+=`<g fill="var(--accent)" stroke="var(--accentD)" stroke-width="1.2">${paths}</g>`;
+    if(target&&k===target)hot+=`<g fill="#3fd67a" stroke="#1f8a4d" stroke-width="1.8">${paths}</g>`;
+    else if(prim.indexOf(k)>=0)hot+=`<g fill="var(--accent)" stroke="var(--accentD)" stroke-width="1.2">${paths}</g>`;
     else if(sec.indexOf(k)>=0)hot+=`<g fill="#ffd39a" stroke="var(--accent2)" stroke-width="1">${paths}</g>`;
     else faint+=paths;});
   const placed=[];
@@ -2342,11 +2411,11 @@ function findEx(name){
   for(const k of keys)if(n.indexOf(anatNorm(k))>=0||anatNorm(k).indexOf(n)>=0)return {key:k,data:EX[k]};
   for(const a of Object.keys(EX_ALIAS))if(n.indexOf(anatNorm(a))>=0)return {key:EX_ALIAS[a],data:EX[EX_ALIAS[a]]};
   return null;}
-function musSpec(k,no,isP){const m=MUS[k];if(!m)return '';
-  return `<div class="mcard">
-    <div class="mhead"><span class="mno${isP?'':' sub'}">${no}</span>
+function musSpec(k,no,isP,isTarget){const m=MUS[k];if(!m)return '';
+  return `<div class="mcard"${isTarget?' style="border-left-color:#1f8a4d;background:#eafbf1"':''}>
+    <div class="mhead"><span class="mno${isP?'':' sub'}" ${isTarget?'style="background:#1f8a4d"':''}>${no}</span>
       <span><b style="font-size:15px">${m.jp}</b> <span class="muted" style="font-size:11px;letter-spacing:.04em">${m.en}</span>
-      <div class="muted" style="font-size:11px">${isP?'主働筋 PRIME MOVER':'協働筋 SYNERGIST'}</div></span></div>
+      <div class="muted" style="font-size:11px">${isP?'主働筋 PRIME MOVER':'協働筋 SYNERGIST'}${isTarget?' ・ <b style="color:#1f8a4d">🎯 今日の狙い</b>':''}</div></span></div>
     <div class="mspec"><span>起始</span><div>${m.o}</div></div>
     <div class="mspec"><span>停止</span><div>${m.i}</div></div>
     <div class="mspec"><span>作用</span><div>${m.a}</div></div>
@@ -2357,10 +2426,11 @@ function openAnat(name){
   /* 種目ごとに、その筋を見るのに素直な向きから始める（背中の種目なら背面） */
   const hit=findEx(name),cached=(D.anatCache||{})[name];
   const pv=(cached&&cached.p)||(hit?hit.data.p:[]),sv=(cached&&cached.s)||(hit?hit.data.s:[]);
+  window._anatTarget=todaysTargetKeyFor(name);
   _a3.view=anat3dNatView(pv,sv);_a3.mode='3d';
   const s=document.getElementById('anatSheet');s.classList.add('on');s.innerHTML=anatView(name);
   window.scrollTo(0,0);s.scrollTop=0;anat3dPaint();}
-function closeAnat(){const s=document.getElementById('anatSheet');s.classList.remove('on');s.innerHTML='';}
+function closeAnat(){const s=document.getElementById('anatSheet');s.classList.remove('on');s.innerHTML='';window._anatTarget='';}
 function anatView(name){
   const hit=findEx(name);
   const cached=(D.anatCache||{})[name];
@@ -2378,15 +2448,18 @@ function anatView(name){
   const en=(d&&d.en)||(cached&&cached.en)||'ANATOMY';
   const cat=(d&&d.cat)||(cached&&cached.cat)||'';
   const num={};prim.forEach((k,i)=>num[k]=i+1);sec.forEach((k,i)=>{if(!num[k])num[k]=prim.length+i+1;});
+  const target=window._anatTarget||'';
+  const targetBanner=(target&&MUS[target]&&(prim.indexOf(target)>=0||sec.indexOf(target)>=0))?`<div class="banner" style="border:1px solid #1f8a4d;background:#eafbf1;color:#155c33">🎯 <b>今日はここを狙う：${MUS[target].jp}</b></div>`:'';
   return head+`<div class="wrap" style="padding-bottom:56px">
     <div class="anathero">
       <div class="anatkicker">${esc(cat||'ANATOMY')}</div>
       <h1 class="anattitle">${esc(hit?hit.key:name)}</h1>
       <div class="anaten">${esc(en)}</div>
     </div>
-    ${anat3dCard(prim,sec)}
-    ${prim.map(k=>musSpec(k,num[k],true)).join('')}
-    ${sec.map(k=>musSpec(k,num[k],false)).join('')}
+    ${targetBanner}
+    ${anat3dCard(prim,sec,target)}
+    ${prim.map(k=>musSpec(k,num[k],true,k===target)).join('')}
+    ${sec.map(k=>musSpec(k,num[k],false,k===target)).join('')}
     ${d?`<div class="anatsec"><div class="anatsech">意識するポイント<span>CUES</span></div>
       ${d.cue.map((c,i)=>`<div class="cueline"><span class="cueno">${i+1}</span><span>${esc(c)}</span></div>`).join('')}</div>`:''}
     ${d&&d.ng&&d.ng.length?`<div class="anatsec"><div class="anatsech" style="border-color:var(--warn)">よくある代償動作<span>WATCH OUT</span></div>
@@ -2436,7 +2509,7 @@ document.addEventListener('focusin',function(e){
 });
 
 /* ============ 起動 ============ */
-window._mood='';window._pkind='progress';window._soreParts=[];window._soreLv='';
+window._mood='';window._pkind='progress';window._soreParts=[];window._soreLv='';window._soreMuscles=[];window._soreNote='';window._soreBusy=null;
 render();
 
 /* =====================================================================
