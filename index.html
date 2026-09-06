@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v8.0</title>
+<title>カラダ管理 v8.1</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -255,7 +255,14 @@
   .nut4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-top:4px}
   .nut4 label{margin:0 0 2px;font-size:11px;text-align:center}
   .nut4 input{padding:10px 2px;text-align:center;font-weight:800;font-size:16px}
-  .mealph{width:100%;max-height:260px;object-fit:cover;border-radius:11px;background:var(--card2);display:block}
+  .mealph{width:100%;max-height:260px;object-fit:cover;border-radius:11px;background:var(--card2);display:block;cursor:pointer}
+  /* v8.1① 食事写真を複数枚：横並びサムネ・追加・削除 */
+  .mphrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+  .mphwrap{position:relative;flex:0 0 auto}
+  .mphrow .mealph.mphmulti{width:120px;height:120px;max-height:120px}
+  .mphrow .cthumb.mphmulti{width:110px;height:110px;max-height:110px;margin-top:0;border-radius:10px;object-fit:cover;cursor:pointer;background:var(--card2);flex:0 0 auto}
+  .mphdel{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:none;background:rgba(0,0,0,.55);color:#fff;font-size:13px;line-height:1;cursor:pointer}
+  .mphadd{flex:0 0 auto;width:56px;border:2px dashed var(--line);border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--sub);cursor:pointer}
   .tlbody.tap{cursor:pointer}
   .tlbody.tap:active{background:var(--card2)}
   .editmark{float:right;font-size:11px;color:var(--accentD);font-weight:800}
@@ -458,6 +465,56 @@ function fileToDataUrl(file,max=1000){return new Promise((res)=>{const img=new I
   rd.onload=()=>{img.onload=()=>{let{width:w,height:h}=img;if(w>h&&w>max){h=h*max/w;w=max;}else if(h>max){w=w*max/h;h=max;}
     const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
     res(c.toDataURL('image/jpeg',.82));};img.src=rd.result;};rd.readAsDataURL(file);});}
+
+/* =====================================================================
+   v8.1① 食事の写真を複数枚つけられるように
+   ---------------------------------------------------------------------
+   meals[].photoId（単数）→ meals[].photoIds[]（配列）に拡張。
+   既存データ（photoIdのみ）とはmealPhotoIds()で吸収し、互換を保つ。
+   ===================================================================== */
+const MEAL_PHOTO_MAX=6;
+function mealPhotoIds(m){
+  if(m&&Array.isArray(m.photoIds)&&m.photoIds.length)return m.photoIds;
+  if(m&&m.photoId)return [m.photoId];
+  return [];
+}
+/* 保存済みの写真（IndexedDB参照・data-pidで非同期読込）を並べて表示。1枚なら今まで通り、複数なら横並び */
+function mealThumbsHtml(m,style){
+  const ids=mealPhotoIds(m);if(!ids.length)return '';
+  if(ids.length===1)return `<img class="cthumb" data-pid="${ids[0]}" alt="食事写真" onclick="enlargeMealPhoto(this)"${style?` style="${style}"`:''}>`;
+  return `<div class="mphrow" style="margin-top:8px">${ids.map(id=>`<img class="cthumb mphmulti" data-pid="${id}" alt="食事写真" onclick="enlargeMealPhoto(this)">`).join('')}</div>`;
+}
+function enlargeMealPhoto(el){if(!el||!el.src)return;enlargeMealPhotoSrc(el.src);}
+function enlargeMealPhotoSrc(src){
+  if(!src||src.indexOf('data:')!==0)return;
+  document.getElementById('imgBig').src=src;document.getElementById('imgOverlay').classList.add('on');
+}
+/* 「食事を直す」シート用：保存済みの写真を横並び表示＋削除／追加（既存の記録に後から足せる） */
+function mealPhotoBlockEdit(m){
+  const ids=mealPhotoIds(m);
+  const addInput=(extra)=>`<input type="file" accept="image/*" multiple onchange="mealAddPhoto('${m.id}',this)" hidden>${extra||''}`;
+  if(!ids.length)return `<label class="camzone" style="margin-bottom:0">${addInput()}<span class="camic">📷</span><b>写真を追加（任意）</b>
+    <span class="muted" style="font-size:12px">タップして、その場で撮るかアルバムから選べます（複数選択もOK）</span></label>`;
+  const thumbs=ids.map(id=>`<div class="mphwrap"><img class="mealph mphmulti" data-pid="${id}" alt="食事写真" onclick="enlargeMealPhoto(this)"><button class="mphdel" onclick="mealRemovePhoto('${m.id}','${id}')">✕</button></div>`).join('');
+  const addBtn=ids.length<MEAL_PHOTO_MAX?`<label class="mphadd">${addInput()}<span>＋</span></label>`:'';
+  return `<div class="mphrow">${thumbs}${addBtn}</div><div class="muted" style="font-size:11px;margin-top:4px">${ids.length}/${MEAL_PHOTO_MAX}枚</div>`;
+}
+async function mealAddPhoto(id,input){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  const files=input.files?Array.from(input.files):[];if(!files.length)return;
+  const ids=mealPhotoIds(m).slice();
+  const room=Math.max(0,MEAL_PHOTO_MAX-ids.length);
+  for(const f of files.slice(0,room)){
+    try{const pid=uid();const dataUrl=await fileToDataUrl(f);await imgPut({id:pid,kind:'meal',date:m.date||today(),dataUrl,note:m.memo||''});ids.push(pid);}catch(e){}
+  }
+  m.photoIds=ids;save();renderMeal();
+}
+async function mealRemovePhoto(id,pid){
+  const m=(D.meals||[]).find(x=>x.id===id);if(!m)return;
+  m.photoIds=mealPhotoIds(m).filter(x=>x!==pid);
+  try{await imgDel(pid);}catch(e){}
+  save();renderMeal();
+}
 
 /* ============ ルーティング ============ */
 const TABS=[['トレ','dumbbell'],['食事','meal'],['からだ','ruler'],['カレンダー','calendar'],['コーチ','coach']];
@@ -916,10 +973,10 @@ function calMeal(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ�
   return `<div class="card" style="padding:11px 14px"><div class="row" style="justify-content:space-between">
     <b>${esc(m.type)}</b><span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
     <div style="margin-top:3px">${esc(m.memo)||'<span class="muted">（メモなし）</span>'}</div>
-    ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
-    ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
+    ${mealThumbsHtml(m)}
+    ${mealPhotoIds(m).length?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
     ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
-async function loadCalThumbs(box){const ims=box.querySelectorAll('img.cthumb');if(!ims.length)return;
+async function loadCalThumbs(box){const ims=box.querySelectorAll('img.cthumb[data-pid], img.mealph[data-pid]');if(!ims.length)return;
   const all=await imgAll();const map={};all.forEach(o=>map[o.id]=o.dataUrl);
   ims.forEach(im=>{const d=map[im.dataset.pid];if(d)im.src=d;else im.remove();});}
 function fmtSet(s){if(s.dur)return s.dur;if(s.weight==null&&s.reps!=null)return s.reps+'回';return `${s.weight!=null?s.weight:'-'}kg×${s.reps!=null?s.reps:'-'}`;}
@@ -1087,8 +1144,8 @@ function vMeal(){
     <input id="mMemo" placeholder="例：鶏むね、玄米、サラダ">
     <label>ボリューム感</label>
     <div class="row" id="lvRow">${LEVELS.map(l=>`<button class="chip ${l===_mealLevel?'on':''}" onclick="_mealLevel='${l}';document.querySelectorAll('#lvRow .chip').forEach(c=>c.classList.remove('on'));event.target.classList.add('on')">${l}</button>`).join('')}</div>
-    <label>写真（任意・端末内のみ）</label>
-    <input id="mPhoto" type="file" accept="image/*">
+    <label>写真（任意・端末内のみ・複数選択OK）</label>
+    <input id="mPhoto" type="file" accept="image/*" multiple>
     <button class="btn" style="margin-top:10px" onclick="saveMeal()">記録する</button>
   </div>
   <h3>今日の食事</h3>
@@ -1098,9 +1155,12 @@ function vMeal(){
   ${D.meals.filter(x=>x.date!==t).slice(-12).reverse().map(m=>mealItem(m)).join('')||'<div class="muted">—</div>'}`;
 }
 async function saveMeal(){const memo=document.getElementById('mMemo').value.trim();
-  const f=document.getElementById('mPhoto').files[0];let photoId='';
-  if(f){photoId=uid();const dataUrl=await fileToDataUrl(f);await imgPut({id:photoId,kind:'meal',date:document.getElementById('mDate').value,dataUrl,note:memo});}
-  D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),ts:Date.now(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoId});
+  const files=document.getElementById('mPhoto').files?Array.from(document.getElementById('mPhoto').files):[];
+  const photoIds=[];
+  for(const f of files.slice(0,MEAL_PHOTO_MAX)){
+    try{const id=uid();const dataUrl=await fileToDataUrl(f);await imgPut({id,kind:'meal',date:document.getElementById('mDate').value,dataUrl,note:memo});photoIds.push(id);}catch(e){}
+  }
+  D.meals.push({id:uid(),date:document.getElementById('mDate').value||today(),ts:Date.now(),type:document.getElementById('mType').value,memo,level:_mealLevel,photoIds});
   _mealLevel='普通';save();render();}
 function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデイ';
   const has=mealHasNut(m);
@@ -1112,8 +1172,8 @@ function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ
   <b>${esc(m.type)}</b><span class="d">${fmtD(m.date)}<button class="del" onclick="delMeal('${m.id}')">削除</button></span></div>
   <div>${esc(m.memo)||'<span class="muted">（メモなし）</span>'} <span class="pill ${hot?'hot':''}">${esc(m.level)}</span></div>
   ${nut}
-  ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真">`:''}
-  ${m.photoId?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
+  ${mealThumbsHtml(m)}
+  ${mealPhotoIds(m).length?`<button class="btn sm gray" style="width:100%;margin-top:6px" onclick="analyzeMealPhoto('${m.id}')">🍽️ AIで栄養＆サプリ分析${m.aiNote?'（再分析）':''}</button>`:''}
   <details style="margin-top:6px"><summary style="cursor:pointer;list-style:none;font-size:12px;color:var(--accentD);font-weight:700">✏️ 栄養を手入力</summary>
     <div class="row" style="gap:5px;margin-top:6px">
       ${[['kcal','kcal'],['p','P(g)'],['f','F(g)'],['c','C(g)']].map(([k,l])=>`<div style="flex:1 1 22%">
@@ -1123,16 +1183,20 @@ function mealItem(m){const hot=m.level==='食べ過ぎ'||m.level==='チートデ
     <div class="muted" style="font-size:11px;margin-top:4px">kcalを入れると推定ではなく実測としてグラフに入ります。空にすると推定に戻ります。</div>
   </details>
   ${m.aiNote?`<div class="muted" style="font-size:12px;margin-top:6px;white-space:pre-wrap;background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:9px">${esc(m.aiNote)}</div>`:''}</div>`;}
-async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);if(!m||!m.photoId){alert('写真がありません');return;}
+async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);const ids=mealPhotoIds(m);if(!m||!ids.length){alert('写真がありません');return;}
   if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
-  const imgs=await imgAll();const im=imgs.find(o=>o.id===m.photoId);
-  if(!im||!im.dataUrl){alert('写真を読み込めませんでした');return;}
+  const imgs=await imgAll();const found=ids.map(id=>imgs.find(o=>o.id===id)).filter(x=>x&&x.dataUrl);
+  if(!found.length){alert('写真を読み込めませんでした');return;}
   m.aiNote='🍽️ 分析中…';save();render();
-  const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
-  const b64=im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'');
   const sup=D.supList.map(s=>s.name+(s.count?`(いつも${s.count}${supUnit(s)})`:'')).join('・');
-  const prompt=`この食事写真を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。\n\n最後に必ず、次の2行を付けてください（アプリが使います。画面には表示されません）：\nFOOD: 鶏むね150g・玄米150g・サラダ\nDATA: kcal=520, p=32, f=18, c=55\n※FOOD は写真から読み取った食材と分量を簡潔に。DATA は幅ではなく中央値の整数で。`;
-  try{const r=await aiCall([{role:'user',content:[{type:'text',text:prompt},{type:'image',source:{type:'base64',media_type:mt,data:b64}}]}],{model:aiModelData(),max_tokens:700});
+  const multi=found.length>1;
+  const prompt=`この食事写真${multi?`（${found.length}枚・同じ食事の別アングルや追加のおかずなど）`:''}を見て日本語で簡潔に。\n1) 何の料理か\n2) ざっくりPFC(タンパク質/脂質/炭水化物)と推定カロリー（"約"・幅でOK${multi?'。複数枚に写っているものは合算して見積もる':''}）\n3) 目標(${D.profile.goal||'筋肉を保ちつつ引き締め'})に対して一言\n${sup?`4) 手持ちサプリ(${sup})から、この食事に足すなら何を何粒くらいか（ざっくり目安・医療的処方ではない前提で「一般に」と前置き）`:''}\n※写真からの推定なので"ざっくり"で。\n\n最後に必ず、次の2行を付けてください（アプリが使います。画面には表示されません）：\nFOOD: 鶏むね150g・玄米150g・サラダ\nDATA: kcal=520, p=32, f=18, c=55\n※FOOD は写真から読み取った食材と分量を簡潔に${multi?'（複数枚ぶんまとめて）':''}。DATA は幅ではなく中央値の整数で。`;
+  const content=[{type:'text',text:prompt}];
+  found.forEach(im=>{
+    const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
+    content.push({type:'image',source:{type:'base64',media_type:mt,data:im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}});
+  });
+  try{const r=await aiCall([{role:'user',content}],{model:aiModelData(),max_tokens:700});
     let txt=r,got=false;
     const _fm=txt.match(/^\s*FOOD\s*[:：]\s*(.+)$/mi);
     if(_fm&&_fm[1].trim()&&!(m.memo||'').trim())m.memo=_fm[1].trim();
@@ -1146,7 +1210,9 @@ async function analyzeMealPhoto(mealId){const m=D.meals.find(x=>x.id===mealId);i
     m.aiNote=txt+(got?'\n\n📊 カロリー・PFCを反映しました（食材が違ってたら、タイムラインでこの食事をタップ →「食べたもの」を直して計算し直せます）':'');
     save();render();}
   catch(e){m.aiNote='⚠️ '+e.message;save();render();}}
-async function delMeal(id){const m=D.meals.find(x=>x.id===id);if(m&&m.photoId)await imgDel(m.photoId);D.meals=D.meals.filter(x=>x.id!==id);save();render();}
+async function delMeal(id){const m=D.meals.find(x=>x.id===id);
+  if(m)for(const pid of mealPhotoIds(m)){try{await imgDel(pid);}catch(e){}}
+  D.meals=D.meals.filter(x=>x.id!==id);save();render();}
 
 function supUnit(s){return s.unit||'粒';}
 function usualCount(supId){const s=D.supList.find(x=>x.id===supId);
@@ -1528,7 +1594,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v8.0（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v8.1（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -2728,8 +2794,8 @@ function renderMeal(){
   sh.innerHTML=`
    <div class="sheetbar"><b>🍽 食事を直す</b><button class="close" onclick="closeMeal()">✕</button></div>
    <div class="wrap" style="padding-top:14px;padding-bottom:40px">
-     ${m.photoId?`<img class="mealph" data-pid="${m.photoId}" alt="食事写真">`:''}
-     <div class="card" style="margin-top:${m.photoId?'12px':'0'}">
+     ${mealPhotoBlockEdit(m)}
+     <div class="card" style="margin-top:${mealPhotoIds(m).length?'12px':'0'}">
        <h3 style="margin-top:0">食べたもの</h3>
        <div class="muted" style="margin-bottom:6px">AIが食材を取り違えていたら、ここを正しく書き直してから下の「計算し直す」を押してね。<b>写真よりこの文章を正として計算します。</b></div>
        <textarea id="mealMemo" class="exmemo" oninput="autoGrow(this)" onchange="mealSet('${m.id}','memo',this.value)"
@@ -2841,7 +2907,7 @@ async function recalcMeal(id){
     (m.memo||'').trim(),
     '量の感覚：'+(m.level||'普通'),
     '',
-    '※写真を添える場合、写真は分量の目安にだけ使ってよいが、'
+    '※写真を添える場合（複数枚のこともある）、写真は分量の目安にだけ使ってよいが、'
       +'食材・料理の種類が本人の記述と食い違うときは必ず本人の記述を優先すること。',
     '',
     '出力は日本語で、次の2つだけ：',
@@ -2856,13 +2922,17 @@ async function recalcMeal(id){
   ];
   const content=[{type:'text',text:lines.join('\n')}];
   try{
-    if(m.photoId){
-      const imgs=await imgAll();const im=imgs.find(o=>o.id===m.photoId);
-      if(im&&im.dataUrl){
-        const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
-        content.push({type:'image',source:{type:'base64',media_type:mt,
-          data:im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}});
-      }
+    const photoIds=mealPhotoIds(m);
+    if(photoIds.length){
+      const imgs=await imgAll();
+      photoIds.forEach(pid=>{
+        const im=imgs.find(o=>o.id===pid);
+        if(im&&im.dataUrl){
+          const mt=(im.dataUrl.match(/^data:(image\/[a-z]+);base64,/)||[])[1]||'image/jpeg';
+          content.push({type:'image',source:{type:'base64',media_type:mt,
+            data:im.dataUrl.replace(/^data:image\/[a-z]+;base64,/,'')}});
+        }
+      });
     }
     const r=await aiCallRetry([{role:'user',content:content}],
       {model:aiModelData(),max_tokens:700,system:sysGuard});
@@ -3451,7 +3521,7 @@ function v7Events(days){
         :(aiFoodGuess(m)
           ?`<div style="margin-top:3px">${esc(aiFoodGuess(m))}<span class="muted" style="font-size:11px"> ← AIの読み取り</span></div>`
           :'<div class="muted" style="margin-top:3px">（内容なし）</div>')}
-      ${m.photoId?`<img class="cthumb" data-pid="${m.photoId}" alt="食事写真" style="max-height:150px;margin-top:7px">`:''}`),
+      ${mealThumbsHtml(m,'max-height:150px;margin-top:7px')}`),
     'meal','',i,m.type));
 
   (D.measures||[]).forEach((x,i)=>{
@@ -3696,7 +3766,7 @@ function favAdd(i){
   const src=f.last||{};
   const now=Date.now();
   const m={id:uid(),date:today(),ts:now,type:typeFromHour(new Date(now).getHours()),memo:f.label,
-    level:src.level||'普通',photoId:''};
+    level:src.level||'普通',photoIds:[]};
   if(mealHasNut(src)){m.kcal=+src.kcal;m.p=+src.p||0;m.f=+src.f||0;m.c=+src.c||0;}
   D.meals.push(m);save();
   document.getElementById('favSheet').classList.remove('on');_sheet=null;
@@ -3988,42 +4058,49 @@ function tsFromTime(dateStr,tm){
 function typeFromHour(h){return h<10?'朝':h<15?'昼':h<18?'間食':'夜';}
 
 /* ---------- 新規の食事記録シート ---------- */
-var _nm={dataUrl:'',level:'普通',busy:false};
+var _nm={dataUrls:[],level:'普通',busy:false};
 function openNewMeal(){
-  _nm={dataUrl:'',level:'普通',busy:false};
+  _nm={dataUrls:[],level:'普通',busy:false};
   _sheet='newmeal';
   document.getElementById('newMealSheet').classList.add('on');
   renderNewMeal();
 }
 function closeNewMeal(){
-  _sheet=null;_nm={dataUrl:'',level:'普通',busy:false};
+  _sheet=null;_nm={dataUrls:[],level:'普通',busy:false};
   document.getElementById('newMealSheet').classList.remove('on');
   render();
 }
 function nmLevel(l){_nm.level=l;renderNewMeal();}
 async function nmPick(input){
-  const f=input.files&&input.files[0];if(!f)return;
-  _nm.dataUrl=await fileToDataUrl(f);
+  const files=input.files?Array.from(input.files):[];if(!files.length)return;
+  const room=Math.max(0,MEAL_PHOTO_MAX-_nm.dataUrls.length);
+  for(const f of files.slice(0,room)){
+    try{_nm.dataUrls.push(await fileToDataUrl(f));}catch(e){}
+  }
   renderNewMeal();
 }
-function nmClearPhoto(){_nm.dataUrl='';renderNewMeal();}
+function nmRemovePhoto(i){_nm.dataUrls.splice(i,1);renderNewMeal();}
 function renderNewMeal(){
   const sh=document.getElementById('newMealSheet');if(!sh)return;
   const memo=(document.getElementById('nmMemo')||{}).value||'';
   const tm=(document.getElementById('nmTime')||{}).value||new Date().toTimeString().slice(0,5);
+  const addInput=`<input type="file" accept="image/*" multiple onchange="nmPick(this)" hidden>`;
+  const photoBlock=_nm.dataUrls.length
+    ? `<div class="mphrow">
+         ${_nm.dataUrls.map((u,i)=>`<div class="mphwrap"><img class="mealph mphmulti" src="${u}" alt="撮った写真" onclick="enlargeMealPhotoSrc('${u}')"><button class="mphdel" onclick="nmRemovePhoto(${i})">✕</button></div>`).join('')}
+         ${_nm.dataUrls.length<MEAL_PHOTO_MAX?`<label class="mphadd">${addInput}<span>＋</span></label>`:''}
+       </div>
+       <div class="muted" style="font-size:11px;margin-top:4px">${_nm.dataUrls.length}/${MEAL_PHOTO_MAX}枚</div>`
+    : `<label class="camzone">
+         ${addInput}
+         <span class="camic">📷</span>
+         <b>写真を追加</b>
+         <span class="muted" style="font-size:12px">タップして、その場で撮るかアルバムから選べます（複数選択もOK）</span>
+       </label>`;
   sh.innerHTML=`
    <div class="sheetbar"><b>🍽 食事を記録</b><button class="close" onclick="closeNewMeal()">✕</button></div>
    <div class="wrap" style="padding-top:14px;padding-bottom:40px">
-     ${_nm.dataUrl
-       ? `<img class="mealph" src="${_nm.dataUrl}" alt="いま撮った写真">
-          <div class="row" style="justify-content:center;margin-top:7px">
-            <button class="minibtn" onclick="nmClearPhoto()">写真を撮り直す</button></div>`
-       : `<label class="camzone">
-            <input type="file" accept="image/*" onchange="nmPick(this)" hidden>
-            <span class="camic">📷</span>
-            <b>写真を追加</b>
-            <span class="muted" style="font-size:12px">タップして、その場で撮るかアルバムから選べます</span>
-          </label>`}
+     ${photoBlock}
 
      <div class="card" style="margin-top:12px">
        <h3 style="margin-top:0">食べたもの</h3>
@@ -4042,7 +4119,7 @@ function renderNewMeal(){
      <button class="btn ${_nm.busy?'gray':''}" ${_nm.busy?'disabled':''} onclick="nmSave()">
        ${_nm.busy?'保存中…':'保存する'}</button>
      <div class="muted" style="font-size:11.5px;margin-top:8px;text-align:center;line-height:1.8">
-       ${_nm.dataUrl
+       ${_nm.dataUrls.length
          ? (aiKey()?'保存すると、写真から栄養を自動で見積もります。<br>食材が違ったらタイムラインから直せます。'
                    :'⚙設定でAPIキーを入れると、写真から栄養を自動で見積もります。')
          : '写真がなくても、量の感覚から推定して集計します。'}
@@ -4059,17 +4136,18 @@ async function nmSave(){
   const tm=(tmEl&&tmEl.value)||new Date().toTimeString().slice(0,5);
   const ts=tsFromTime(today(),tm);
   _nm.busy=true;renderNewMeal();
-  let photoId='';
+  const photoIds=[];
   try{
-    if(_nm.dataUrl){photoId=uid();
-      await imgPut({id:photoId,kind:'meal',date:today(),dataUrl:_nm.dataUrl,note:memo});}
-  }catch(e){photoId='';}
+    for(const u of _nm.dataUrls){
+      const id=uid();await imgPut({id,kind:'meal',date:today(),dataUrl:u,note:memo});photoIds.push(id);
+    }
+  }catch(e){/* 撮れた分だけ保存する */}
   const m={id:uid(),date:today(),ts:ts,type:typeFromHour(new Date(ts).getHours()),
-    memo:memo,level:_nm.level||'普通',photoId:photoId};
+    memo:memo,level:_nm.level||'普通',photoIds:photoIds};
   D.meals.push(m);save();
   closeNewMeal();
   _tlFilter=null;_tlBottom=true;_tlWasTop=true;goPage(1,false);render();
-  if(photoId&&aiKey())analyzeMealPhoto(m.id);
+  if(photoIds.length&&aiKey())analyzeMealPhoto(m.id);
 }
 
 /* ---------- 盤面「今日の食事」タイル ---------- */
