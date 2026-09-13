@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="カラダ">
-<title>カラダ管理 v8.1</title>
+<title>カラダ管理 v8.2</title>
 <style>
   :root{
     --bg:#f3f5f8; --card:#ffffff; --ink:#1b2026; --sub:#6b727c;
@@ -63,7 +63,7 @@
   nav button.on{color:var(--accentD)}
   .nic{width:24px;height:24px;margin:0 auto;display:block}
   .gearic{width:24px;height:24px;display:block}
-  #sessbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 56px);z-index:29;
+  #sessbar{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom) + 56px);z-index:42;
     max-width:520px;margin:0 auto;background:var(--card);border-top:2px solid var(--accent);
     box-shadow:0 -6px 18px rgba(0,0,0,.35);padding:9px 14px;display:none}
   #sessbar.on{display:flex;align-items:center;gap:10px}
@@ -212,9 +212,13 @@
   .tipcard ul{margin:0;padding-left:1.1em;font-size:13px;line-height:1.85}
   .tipcard .k{display:inline-block;background:var(--accent);color:#16181c;border-radius:8px;
     padding:1px 7px;font-weight:800;font-size:12px}
-  body.v7 #sessbar{bottom:calc(env(safe-area-inset-bottom) + 61px);z-index:35}
+  body.v7 #sessbar{bottom:calc(env(safe-area-inset-bottom) + 61px);z-index:42}
   body.v7 #nav{display:none}
   body.detail #nav{display:flex;z-index:41}
+  /* v8.2：休憩タイマー（#sessbar）は種目詳細・食事編集・解剖図・タイマーなどの
+     フルスクリーン画面（.sheet、z-index:40）より必ず手前に出す。以前はsessbarの方が
+     奥（z-index:35）だったため、トレ中に何か画面を開くと休憩タイマーが裏に隠れて見えなくなっていた */
+  body.hasbar .sheet{padding-bottom:100px}
   #detailSheet #view{padding-top:14px;padding-bottom:96px}
   .sheetbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
     padding:calc(12px + env(safe-area-inset-top)) 14px 12px;background:rgba(255,255,255,.94);
@@ -530,6 +534,16 @@ function navIcon(n){return `<svg class="nic" viewBox="0 0 24 24" fill="none" str
 let tab='トレ', sub={};
 function setTab(t){tab=t;render();window.scrollTo(0,0);}
 function setSub(k,v){sub[k]=v;render();}
+/* v8.2：コーチのやり取り後に画面を「ページの一番下（document.body.scrollHeight）」まで動かしていたが、
+   コーチの入力欄の下には📌メモ・🧠自動記憶・📒種目メモ・🔖やりたいメモなど長いカードが続くため、
+   ページ全体の一番下＝それらのカードの下になってしまい、肝心のコーチの返信が画面より上に隠れて
+   見えなくなっていた。入力欄のカードが画面の下端に来るところまでで止めれば、直前のやり取りと
+   入力欄が両方見える状態になる */
+function scrollCoachIntoView(){
+  const inp=document.getElementById('coachInput');
+  const box=inp&&inp.closest('.card');
+  if(box)box.scrollIntoView({block:'end'});
+}
 function render(){
   document.getElementById('nav').innerHTML=TABS.map(([t,i])=>
     `<button class="${t===tab?'on':''}" onclick="setTab('${t}')"><span class="ic">${navIcon(i)}</span>${t}</button>`).join('');
@@ -537,7 +551,7 @@ function render(){
   v.innerHTML=(({'トレ':vTre,'食事':vShoku,'からだ':vKarada,'カレンダー':vCalendar,'コーチ':vCoach}[tab])||vTre)();
   if(tab==='からだ'&&sub.kbody==='写真')loadGallery();
   if(tab==='からだ'&&sub.kbody==='グラフ')drawChart();
-  if(tab==='コーチ'&&(sub.coach||'相談')==='相談')setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);
+  if(tab==='コーチ'&&(sub.coach||'相談')==='相談')setTimeout(scrollCoachIntoView,40);
   if(tab==='食事')loadCalThumbs(document.getElementById('view'));
   setTimeout(()=>document.querySelectorAll('.exmemo').forEach(autoGrow),20);
   const sb=document.getElementById('sessbar');
@@ -925,12 +939,26 @@ function sessEnd(){ensurePlan();if(!D.plan.startTs)return;const p=D.plan;
 function sessReset(){ensurePlan();D.plan.startTs=null;D.plan.endTs=null;D.plan.paused=false;D.plan.accum=0;D.plan.segStart=null;D.plan.review='';D.plan.hideUndone=true;D.plan.items.forEach(it=>{it.done=false;it.doneTs=null;it.collapsed=false;(it.sets||[]).forEach(s=>{s.done=false;s.doneTs=null;});});clearInterval(window._restInt);save();render();}
 function toggleRest(){ensurePlan();D.plan.restOn=!D.plan.restOn;save();render();}
 function setRestText(t){document.querySelectorAll('.restDisp').forEach(el=>el.textContent=t);}
-function skipRest(){clearInterval(window._restInt);window._restLeft=0;setRestText('');}
-function startRest(sec){clearInterval(window._restInt);window._restLeft=sec;
-  setRestText('休憩 '+window._restLeft+'秒');
-  window._restInt=setInterval(()=>{window._restLeft--;
-    if(window._restLeft<=0){clearInterval(window._restInt);setRestText('休憩おわり💪');beep(660);try{if(navigator.vibrate)navigator.vibrate([200,100,200]);}catch(e){}}
-    else setRestText('休憩 '+window._restLeft+'秒');},1000);}
+function skipRest(){clearInterval(window._restInt);window._restLeft=0;window._restEndTs=0;setRestText('');}
+/* v8.2：休憩の残り秒は「1秒ごとに1つずつ引き算」ではなく「終わる時刻（_restEndTs）」を基準に、
+   毎回そこから今の時刻を引いて計算し直す方式に変更。
+   理由：コーチにAIへ質問すると返信を待つ間タブが裏に回ったり画面が一瞬ロックされたりすることがあり、
+   その間ブラウザ側の判断でタイマー（setInterval）が一時的に間引かれる/遅れることがある。
+   「1秒ずつ引き算」方式だと、遅れた分がそのまま丸ごと消えて休憩タイマーが止まって見えてしまう。
+   終わる時刻を基準に毎回計算し直せば、多少タイマーが遅れて動いても、次に動いた時に正しい残り秒数に
+   追いつく（＝止まって見えない）。 */
+function restTick(){
+  window._restLeft=Math.max(0,Math.round((window._restEndTs-Date.now())/1000));
+  if(window._restLeft<=0){clearInterval(window._restInt);setRestText('休憩おわり💪');beep(660);try{if(navigator.vibrate)navigator.vibrate([200,100,200]);}catch(e){}}
+  else setRestText('休憩 '+window._restLeft+'秒');
+}
+function startRest(sec){clearInterval(window._restInt);window._restEndTs=Date.now()+sec*1000;
+  restTick();
+  window._restInt=setInterval(restTick,1000);}
+document.addEventListener('visibilitychange',function(){
+  /* 画面ロック解除やアプリ復帰の直後は、次の1秒を待たずにすぐ正しい残り秒数へ更新する */
+  if(document.visibilityState==='visible'&&window._restInt)restTick();
+},{passive:true});
 function startSessTick(){clearInterval(window._sessInt);window._sessInt=setInterval(()=>{
   const els=document.querySelectorAll('.sessElapsed');const p=D.plan;
   if(els.length&&p&&p.startTs&&!p.endTs&&!p.paused){const t=fmtT(Math.floor(elapsedSec()));els.forEach(el=>el.textContent=t);}
@@ -1594,7 +1622,7 @@ function openSettings(){const s=document.getElementById('settingsSheet');s.class
       <input id="pfTags" value="${esc(D.photoTags.join(', '))}">
       <button class="btn sm gray" style="width:100%;margin-top:8px" onclick="D.photoTags=document.getElementById('pfTags').value.split(',').map(s=>s.trim()).filter(Boolean);save();alert('保存しました')">保存</button>
     </div>
-    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v8.1（盤面・タイムライン・振り返り）・データは端末内保存</div>
+    <div class="muted" style="text-align:center;padding:10px">カラダ管理 v8.2（盤面・タイムライン・振り返り）・データは端末内保存</div>
   </div>`;}
 function saveProfile(){D.profile.name=document.getElementById('pfName').value.trim();D.profile.goal=document.getElementById('pfGoal').value.trim();save();alert('保存しました');render();}
 function saveBody(){const g=id=>document.getElementById(id);
@@ -1744,7 +1772,7 @@ function sendCoach(){const inp=document.getElementById('coachInput');const q=(in
   curThread().push({role:'user',content:q});window._coachDraft='';if(inp)inp.value='';save();runCoach();}
 function coachAsk(q,thread){if(!aiKey()){alert('先に⚙設定でAPIキーを入れてね');openSettings();return;}
   if(thread)window._thread=thread;sub.coach='相談';curThread().push({role:'user',content:q});save();setTab('コーチ');runCoach();}
-function switchThread(name){window._thread=name;render();setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),40);}
+function switchThread(name){window._thread=name;render();setTimeout(scrollCoachIntoView,40);}
 function askBuildMenu(){coachAsk('今日の筋トレメニューを組んで。目標・最近のトレ履歴・残ってる筋肉痛・体調/生理を踏まえて、種目とセット数・重量の目安を提案して。ジムが混んでる時の代替種目も一言そえて。');}
 function askDiagnoseMenu(){ensurePlan();const names=D.plan.items.map(x=>x.name).join('・')||'（まだ種目なし）';
   coachAsk('今トレ画面に入れている種目は「'+names+'」。目標に対して、部位バランス（押す/引く/脚）や総ボリュームは適切か診断して。足す/減らす/順番の提案も具体的に。');}
